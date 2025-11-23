@@ -13,6 +13,7 @@
 	let searchQuery = ''
 	let renamingId: string | null = null
 	let renameValue = ''
+	let selectedIndex = -1 // For keyboard navigation
 
 	// Filter views based on search
 	$: filteredViews = searchQuery
@@ -30,6 +31,7 @@
 		if (!open) {
 			searchQuery = ''
 			renamingId = null
+			selectedIndex = -1
 		}
 	}
 
@@ -37,6 +39,35 @@
 		open = false
 		searchQuery = ''
 		renamingId = null
+		selectedIndex = -1
+	}
+
+	// Keyboard navigation handler
+	function handleKeydown(event: KeyboardEvent) {
+		if (!open || renamingId) return
+
+		const viewsList = sortedViews
+
+		switch (event.key) {
+			case 'ArrowDown':
+				event.preventDefault()
+				selectedIndex = Math.min(selectedIndex + 1, viewsList.length - 1)
+				break
+			case 'ArrowUp':
+				event.preventDefault()
+				selectedIndex = Math.max(selectedIndex - 1, -1)
+				break
+			case 'Enter':
+				event.preventDefault()
+				if (selectedIndex >= 0 && selectedIndex < viewsList.length) {
+					selectView(viewsList[selectedIndex])
+				}
+				break
+			case 'Escape':
+				event.preventDefault()
+				closeDropdown()
+				break
+		}
 	}
 
 	async function selectView(view: SavedView) {
@@ -76,6 +107,33 @@
 		}
 	}
 
+	async function duplicateView(view: SavedView, event: Event) {
+		event.stopPropagation()
+
+		try {
+			// Generate unique name
+			let duplicateName = `${view.name} (Copy)`
+			let counter = 2
+			while (await viewActions.nameExists(duplicateName)) {
+				duplicateName = `${view.name} (Copy ${counter})`
+				counter++
+			}
+
+			// Create duplicate with new ID and name
+			await viewActions.save({
+				name: duplicateName,
+				description: view.description,
+				config: view.config,
+				originalQuery: view.originalQuery
+			})
+
+			console.log('[ViewSelector] Duplicated view:', view.name, '→', duplicateName)
+		} catch (err) {
+			console.error('[ViewSelector] Failed to duplicate view:', err)
+			alert('Failed to duplicate view. Please try again.')
+		}
+	}
+
 	function formatDate(timestamp: number): string {
 		const date = new Date(timestamp)
 		const now = new Date()
@@ -96,7 +154,7 @@
 	}
 </script>
 
-<svelte:window on:click={handleClickOutside} />
+<svelte:window on:click={handleClickOutside} on:keydown={handleKeydown} />
 
 <div class="view-selector relative">
 	<!-- Trigger Button -->
@@ -188,6 +246,16 @@
 								<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100">
 									<button
 										type="button"
+										on:click={(e) => duplicateView(view, e)}
+										class="p-1 hover:bg-blue-100 rounded"
+										title="Duplicate"
+									>
+										<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+										</svg>
+									</button>
+									<button
+										type="button"
 										on:click={(e) => startRename(view, e)}
 										class="p-1 hover:bg-gray-200 rounded"
 										title="Rename"
@@ -222,6 +290,8 @@
 					</h3>
 
 					{#if sortedViews.length === 0}
+						<!-- Reset selectedIndex when no views -->
+						{@const _ = (selectedIndex = -1)}
 						<div class="py-8 text-center">
 							<svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
@@ -234,7 +304,7 @@
 							</p>
 						</div>
 					{:else}
-						{#each sortedViews as view}
+						{#each sortedViews as view, i}
 							{#if renamingId === view.id}
 								<div class="px-3 py-2 bg-gray-50 rounded-md mb-1">
 									<input
@@ -255,6 +325,8 @@
 									on:click={() => selectView(view)}
 									class="w-full text-left px-3 py-2 rounded-md hover:bg-gray-50 flex items-center justify-between group mb-1"
 									class:bg-indigo-50={view.id === $activeViewId}
+									class:ring-2={selectedIndex === i}
+									class:ring-indigo-400={selectedIndex === i}
 								>
 									<div class="flex-1 min-w-0">
 										<p class="text-sm font-medium text-gray-900 truncate">{view.name}</p>
@@ -268,6 +340,16 @@
 										</div>
 									</div>
 									<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+										<button
+											type="button"
+											on:click={(e) => duplicateView(view, e)}
+											class="p-1 hover:bg-blue-100 rounded"
+											title="Duplicate"
+										>
+											<svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+											</svg>
+										</button>
 										<button
 											type="button"
 											on:click={(e) => startRename(view, e)}

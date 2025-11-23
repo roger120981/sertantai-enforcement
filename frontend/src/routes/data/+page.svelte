@@ -8,7 +8,7 @@
 	import { queryState } from '$lib/stores/query-state'
 	import ViewSelector from '$lib/components/table-views/ViewSelector.svelte'
 	import SaveViewModal from '$lib/components/table-views/SaveViewModal.svelte'
-	import { activeViewModified, viewActions } from '$lib/stores/saved-views'
+	import { activeViewId, activeViewModified, viewActions } from '$lib/stores/saved-views'
 	import type { TableConfig } from '$lib/components/table-views/types'
 	import type { SavedView } from '$lib/db/schema'
 
@@ -78,11 +78,35 @@
 	function applyViewConfig(config: TableConfig) {
 		console.log('[Data Page] Applying view config:', config)
 
+		// Get available column IDs
+		const availableColumnIds = new Set(columns.map(c => String(c.id)))
+
+		// Validate columns - filter out missing columns
+		const validColumns = config.columns.filter(colId => availableColumnIds.has(colId))
+		const validColumnOrder = config.columnOrder.filter(colId => availableColumnIds.has(colId))
+
+		// Check for missing columns
+		const missingColumns = config.columns.filter(colId => !availableColumnIds.has(colId))
+		if (missingColumns.length > 0) {
+			console.warn('[Data Page] View contains missing columns:', missingColumns)
+			console.warn('[Data Page] Using only available columns:', validColumns)
+
+			// Show warning to user
+			const missingCount = missingColumns.length
+			const totalCount = config.columns.length
+			alert(
+				`⚠️ Column Validation Warning\n\n` +
+				`This view contains ${missingCount} column(s) that no longer exist (${totalCount} total).\n\n` +
+				`Missing columns:\n${missingColumns.join(', ')}\n\n` +
+				`The view will be loaded with ${validColumns.length} available columns.`
+			)
+		}
+
 		// Set AI config which will reactively update TableKit
 		aiFilters = config.filters
 		aiSort = config.sort
-		aiColumns = config.columns
-		aiColumnOrder = config.columnOrder
+		aiColumns = validColumns.length > 0 ? validColumns : []
+		aiColumnOrder = validColumnOrder.length > 0 ? validColumnOrder : []
 		configVersion++
 	}
 
@@ -114,6 +138,21 @@
 		} catch (err) {
 			console.error('[Data Page] Failed to capture table config:', err)
 			alert('Failed to capture table configuration. Please try again.')
+		}
+	}
+
+	// Handle update existing view
+	async function handleUpdateView() {
+		const activeId = $activeViewId
+		if (!activeId) return
+
+		try {
+			const config = captureCurrentConfig()
+			await viewActions.update(activeId, { config })
+			console.log('[Data Page] View updated successfully')
+		} catch (err) {
+			console.error('[Data Page] Failed to update view:', err)
+			alert('Failed to update view. Please try again.')
 		}
 	}
 
@@ -425,25 +464,61 @@
 			<!-- Left: View Selector -->
 			<ViewSelector on:viewSelected={handleViewSelected} />
 
-			<!-- Right: Save View Button -->
-			<button
-				type="button"
-				on:click={handleSaveView}
-				class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-			>
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-					/>
-				</svg>
-				Save View
-				{#if $activeViewModified}
-					<span class="text-orange-300" title="Current view has been modified">✏️</span>
-				{/if}
-			</button>
+			<!-- Right: Save/Update Button (Split when view is active and modified) -->
+			{#if $activeViewId && $activeViewModified}
+				<!-- Split Button: Update | Save New -->
+				<div class="inline-flex rounded-md shadow-sm">
+					<!-- Update Existing Button -->
+					<button
+						type="button"
+						on:click={handleUpdateView}
+						class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-l-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+							/>
+						</svg>
+						Update View
+					</button>
+					<!-- Save as New Button -->
+					<button
+						type="button"
+						on:click={handleSaveView}
+						class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border-l border-indigo-500 rounded-r-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 4v16m8-8H4"
+							/>
+						</svg>
+						Save New
+					</button>
+				</div>
+			{:else}
+				<!-- Regular Save Button -->
+				<button
+					type="button"
+					on:click={handleSaveView}
+					class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+						/>
+					</svg>
+					Save View
+				</button>
+			{/if}
 		</div>
 	{/if}
 
