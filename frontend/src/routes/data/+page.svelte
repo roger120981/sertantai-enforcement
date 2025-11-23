@@ -6,8 +6,8 @@
 	import { useUnifiedData, type UnifiedRecord } from '$lib/query/unified'
 	import NaturalLanguageQuery from '$lib/components/NaturalLanguageQuery.svelte'
 	import { queryState } from '$lib/stores/query-state'
-	import { ViewSelector, SaveViewModal, activeViewId, activeViewModified, viewActions } from 'svelte-table-views'
-	import type { TableConfig, SavedView } from 'svelte-table-views'
+	import { ViewSelector, SaveViewModal, activeViewId, activeViewModified, viewActions } from 'svelte-table-views-tanstack'
+	import type { TableConfig, SavedView } from 'svelte-table-views-tanstack'
 
 	// AI-generated configuration from NL query
 	let aiFilters: any[] = []
@@ -455,69 +455,6 @@
 		<NaturalLanguageQuery onQuerySuccess={handleQuerySuccess} placeholder="Ask about enforcement data in plain English..." />
 	{/if}
 
-	<!-- Table Controls: View Selector & Save Button -->
-	{#if browser && $unifiedData?.data?.data}
-		<div class="flex items-center justify-between gap-4 mb-4">
-			<!-- Left: View Selector -->
-			<ViewSelector on:viewSelected={handleViewSelected} />
-
-			<!-- Right: Save/Update Button (Split when view is active and modified) -->
-			{#if $activeViewId && $activeViewModified}
-				<!-- Split Button: Update | Save New -->
-				<div class="inline-flex rounded-md shadow-sm">
-					<!-- Update Existing Button -->
-					<button
-						type="button"
-						on:click={handleUpdateView}
-						class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-l-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-							/>
-						</svg>
-						Update View
-					</button>
-					<!-- Save as New Button -->
-					<button
-						type="button"
-						on:click={handleSaveView}
-						class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border-l border-indigo-500 rounded-r-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 4v16m8-8H4"
-							/>
-						</svg>
-						Save New
-					</button>
-				</div>
-			{:else}
-				<!-- Regular Save Button -->
-				<button
-					type="button"
-					on:click={handleSaveView}
-					class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-				>
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-						/>
-					</svg>
-					Save View
-				</button>
-			{/if}
-		</div>
-	{/if}
 
 	{#if !browser || $unifiedData?.isLoading}
 		<div class="px-4 py-12 text-center bg-white rounded-lg border border-gray-200">
@@ -578,6 +515,66 @@
 					grouping: true
 				}}
 			>
+			<!-- Custom toolbar controls (left side) -->
+			<svelte:fragment slot="toolbar-left">
+				<ViewSelector on:viewSelected={handleViewSelected} />
+
+				<!-- Save/Update Button (Split when view is active and modified) -->
+				{#if $activeViewId && $activeViewModified}
+					<!-- Split Button: Update | Save New -->
+					<div class="inline-flex rounded-md shadow-sm">
+						<!-- Update Existing Button -->
+						<button
+							type="button"
+							on:click={handleUpdateView}
+							class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-l-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+								/>
+							</svg>
+							Update View
+						</button>
+						<!-- Save as New Button -->
+						<button
+							type="button"
+							on:click={handleSaveView}
+							class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border-l border-indigo-500 rounded-r-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 4v16m8-8H4"
+								/>
+							</svg>
+							Save New
+						</button>
+					</div>
+				{:else}
+					<!-- Regular Save Button -->
+					<button
+						type="button"
+						on:click={handleSaveView}
+						class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+							/>
+						</svg>
+						Save View
+					</button>
+				{/if}
+			</svelte:fragment>
 			<svelte:fragment slot="cell" let:cell let:column>
 				{#if column === 'record_type'}
 					<span

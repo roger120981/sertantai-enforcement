@@ -3,6 +3,9 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 
+/* Scan package components for Tailwind classes */
+@source '../node_modules/svelte-table-views-tanstack/dist/**/*.{svelte,js}';
+
 /* Ensure grid-cols-5 and grid-cols-6 are available */
 @theme {
 	--grid-template-columns-5: repeat(5, minmax(0, 1fr));
