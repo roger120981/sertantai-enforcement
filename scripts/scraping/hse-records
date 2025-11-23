@@ -1,0 +1,374 @@
+#!/usr/bin/env elixir
+
+# HSE Records Scraper
+# Fetches HSE court cases or enforcement notices and displays them in the terminal
+#
+# Usage:
+#   ./scripts/scraping/hse-records [options]
+#
+# Options:
+#   --type, -t      Type of records: cases or notices (default: cases)
+#   --page, -p      Page number to scrape (default: 1)
+#   --database, -d  Database for cases (default: convictions)
+#   --country, -c   Country for notices (default: England)
+#   --help, -h      Show this help message
+#
+# Examples:
+#   ./scripts/scraping/hse-records --type=cases --page=5
+#   ./scripts/scraping/hse-records -t notices -p 2 -c Scotland
+#   ./scripts/scraping/hse-records -t cases -d appeals -p 1
+#
+# Available databases (for cases): convictions, appeals
+# Available countries (for notices): England, Scotland, Wales, Northern Ireland
+
+Mix.install([
+  {:floki, "~> 0.36.0"},
+  {:req, "~> 0.5.0"}
+], verbose: false)
+
+defmodule HseRecordsScraper do
+  @moduledoc """
+  Unified HSE records scraper for terminal display.
+  Handles both court cases and enforcement notices from the HSE website.
+  """
+
+  @default_type "cases"
+  @default_database "convictions"
+  @default_country "England"
+  @base_url "https://resources.hse.gov.uk"
+
+  defmodule ScrapedCase do
+    defstruct [
+      :regulator_id,
+      :offender_name,
+      :offence_action_date,
+      :offender_local_authority,
+      :offender_main_activity
+    ]
+  end
+
+  defmodule ScrapedNotice do
+    defstruct [
+      :regulator_id,
+      :offender_name,
+      :offence_action_type,
+      :offence_action_date,
+      :offender_local_authority,
+      :offender_sic,
+      :offender_country
+    ]
+  end
+
+  def run(args) do
+    case parse_args(args) do
+      {:ok, opts} ->
+        execute_scrape(opts)
+
+      :help ->
+        print_help()
+    end
+  end
+
+  defp execute_scrape(opts) do
+    type = opts[:type]
+    page = opts[:page]
+
+    IO.puts("\n" <> IO.ANSI.cyan() <> "HSE Records Scraper" <> IO.ANSI.reset())
+    IO.puts(IO.ANSI.cyan() <> String.duplicate("=", 50) <> IO.ANSI.reset())
+    IO.puts("Type: #{type}")
+    IO.puts("Page: #{page}")
+
+    case type do
+      "cases" ->
+        database = opts[:database]
+        IO.puts("Database: #{database}")
+        IO.puts("")
+        scrape_cases(page, database)
+
+      "notices" ->
+        country = opts[:country]
+        IO.puts("Country: #{country}")
+        IO.puts("")
+        scrape_notices(page, country)
+    end
+  end
+
+  defp scrape_cases(page_number, database) do
+    url = build_cases_url(page_number, database)
+    IO.puts("Fetching: #{url}")
+    IO.puts("")
+
+    case fetch_html(url) do
+      {:ok, html} ->
+        case parse_cases_from_html(html) do
+          {:ok, cases} ->
+            display_cases(cases, page_number)
+            {:ok, cases}
+
+          {:error, reason} ->
+            IO.puts(IO.ANSI.red() <> "Error parsing: #{inspect(reason)}" <> IO.ANSI.reset())
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        IO.puts(IO.ANSI.red() <> "Error fetching: #{inspect(reason)}" <> IO.ANSI.reset())
+        {:error, reason}
+    end
+  end
+
+  defp scrape_notices(page_number, country) do
+    url = build_notices_url(page_number, country)
+    IO.puts("Fetching: #{url}")
+    IO.puts("")
+
+    case fetch_html(url) do
+      {:ok, html} ->
+        case parse_notices_from_html(html, country) do
+          {:ok, notices} ->
+            display_notices(notices, page_number)
+            {:ok, notices}
+
+          {:error, reason} ->
+            IO.puts(IO.ANSI.red() <> "Error parsing: #{inspect(reason)}" <> IO.ANSI.reset())
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        IO.puts(IO.ANSI.red() <> "Error fetching: #{inspect(reason)}" <> IO.ANSI.reset())
+        {:error, reason}
+    end
+  end
+
+  defp build_cases_url(page_number, database) do
+    "#{@base_url}/#{database}/case/case_list.asp?PN=#{page_number}&ST=C&EO=LIKE&SN=F&SF=DN&SV=&SO=DODS"
+  end
+
+  defp build_notices_url(page_number, country) do
+    encoded_country = URI.encode_www_form(country)
+    "#{@base_url}/notices/notices/notice_list.asp?PN=#{page_number}&ST=N&CO=,AND&SN=F&EO==&SF=CTR&SV=#{encoded_country}&SO=DNIS"
+  end
+
+  defp fetch_html(url) do
+    case Req.get(url) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
+
+      {:ok, %{status: status}} ->
+        {:error, {:http_error, status}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Cases parsing
+  defp parse_cases_from_html(html) do
+    {:ok, document} = Floki.parse_document(html)
+
+    cases =
+      document
+      |> Floki.find("tr")
+      |> extract_table_data()
+      |> parse_case_rows()
+
+    {:ok, cases}
+  rescue
+    error ->
+      {:error, {:parse_error, error}}
+  end
+
+  defp parse_case_rows(rows) do
+    Enum.reduce(rows, [], fn
+      [
+        {"td", _, [{"a", [_, _], [regulator_id]}]},
+        {"td", _, [offender_name]},
+        {"td", _, [offence_action_date]},
+        {"td", _, [offender_local_authority]},
+        {"td", _, [offender_main_activity]}
+      ],
+      acc ->
+        case_data = %ScrapedCase{
+          regulator_id: String.trim(regulator_id),
+          offender_name: String.trim(offender_name),
+          offence_action_date: String.trim(offence_action_date),
+          offender_local_authority: String.trim(offender_local_authority),
+          offender_main_activity: String.trim(offender_main_activity)
+        }
+
+        [case_data | acc]
+
+      _, acc ->
+        acc
+    end)
+    |> Enum.reverse()
+  end
+
+  # Notices parsing
+  defp parse_notices_from_html(html, country) do
+    {:ok, document} = Floki.parse_document(html)
+
+    notices =
+      document
+      |> Floki.find("tr")
+      |> extract_table_data()
+      |> parse_notice_rows(country)
+
+    {:ok, notices}
+  rescue
+    error ->
+      {:error, {:parse_error, error}}
+  end
+
+  defp parse_notice_rows(rows, country) do
+    Enum.reduce(rows, [], fn
+      [
+        {"td", [], [{"a", [{"title", _}, {"href", _}], [notice_number]}]},
+        {"td", [], [recipients_name]},
+        {"td", [], [notice_type]},
+        {"td", [], [issue_date]},
+        {"td", [], [local_authority]},
+        {"td", [], [sic]}
+      ],
+      acc ->
+        notice_data = %ScrapedNotice{
+          regulator_id: String.trim(notice_number),
+          offender_name: String.trim(recipients_name),
+          offence_action_type: String.trim(notice_type),
+          offence_action_date: String.trim(issue_date),
+          offender_local_authority: String.trim(local_authority),
+          offender_sic: String.trim(sic),
+          offender_country: country
+        }
+
+        [notice_data | acc]
+
+      _, acc ->
+        acc
+    end)
+    |> Enum.reverse()
+  end
+
+  defp extract_table_data(tr_elements) do
+    Enum.reduce(tr_elements, [], fn
+      {"tr", [], cells}, acc -> [cells | acc]
+      _, acc -> acc
+    end)
+  end
+
+  # Display functions
+  defp display_cases([], page_number) do
+    IO.puts(IO.ANSI.yellow() <> "No cases found on page #{page_number}" <> IO.ANSI.reset())
+  end
+
+  defp display_cases(cases, _page_number) do
+    IO.puts(IO.ANSI.green() <> "Found #{length(cases)} cases:" <> IO.ANSI.reset())
+    IO.puts("")
+
+    Enum.each(cases, fn case_data ->
+      display_case(case_data)
+    end)
+
+    IO.puts("")
+    IO.puts(IO.ANSI.cyan() <> "Total: #{length(cases)} cases" <> IO.ANSI.reset())
+  end
+
+  defp display_case(case_data) do
+    IO.puts(IO.ANSI.bright() <> IO.ANSI.white() <> "Case: #{case_data.regulator_id}" <> IO.ANSI.reset())
+    IO.puts("  Offender:          #{case_data.offender_name}")
+    IO.puts("  Action Date:       #{case_data.offence_action_date}")
+    IO.puts("  Local Authority:   #{case_data.offender_local_authority}")
+    IO.puts("  Main Activity:     #{case_data.offender_main_activity}")
+    IO.puts("")
+  end
+
+  defp display_notices([], page_number) do
+    IO.puts(IO.ANSI.yellow() <> "No notices found on page #{page_number}" <> IO.ANSI.reset())
+  end
+
+  defp display_notices(notices, _page_number) do
+    IO.puts(IO.ANSI.green() <> "Found #{length(notices)} notices:" <> IO.ANSI.reset())
+    IO.puts("")
+
+    Enum.each(notices, fn notice_data ->
+      display_notice(notice_data)
+    end)
+
+    IO.puts("")
+    IO.puts(IO.ANSI.cyan() <> "Total: #{length(notices)} notices" <> IO.ANSI.reset())
+  end
+
+  defp display_notice(notice_data) do
+    IO.puts(IO.ANSI.bright() <> IO.ANSI.white() <> "Notice: #{notice_data.regulator_id}" <> IO.ANSI.reset())
+    IO.puts("  Recipient:         #{notice_data.offender_name}")
+    IO.puts("  Notice Type:       #{notice_data.offence_action_type}")
+    IO.puts("  Issue Date:        #{notice_data.offence_action_date}")
+    IO.puts("  Local Authority:   #{notice_data.offender_local_authority}")
+    IO.puts("  SIC Code:          #{notice_data.offender_sic}")
+    IO.puts("  Country:           #{notice_data.offender_country}")
+    IO.puts("")
+  end
+
+  # Argument parsing
+  defp parse_args(args) do
+    {opts, _, _} =
+      OptionParser.parse(args,
+        strict: [
+          type: :string,
+          page: :integer,
+          database: :string,
+          country: :string,
+          help: :boolean
+        ],
+        aliases: [t: :type, p: :page, d: :database, c: :country, h: :help]
+      )
+
+    if opts[:help] do
+      :help
+    else
+      type = opts[:type] || @default_type
+
+      {:ok,
+       [
+         type: type,
+         page: opts[:page] || 1,
+         database: opts[:database] || @default_database,
+         country: opts[:country] || @default_country
+       ]}
+    end
+  end
+
+  defp print_help do
+    IO.puts("""
+    HSE Records Scraper
+
+    Fetches HSE court cases or enforcement notices and displays them in the terminal.
+
+    Usage:
+      ./scripts/scraping/hse-records [options]
+
+    Options:
+      --type, -t      Type of records: cases or notices (default: cases)
+      --page, -p      Page number to scrape (default: 1)
+      --database, -d  Database for cases (default: convictions)
+      --country, -c   Country for notices (default: England)
+      --help, -h      Show this help message
+
+    Examples:
+      # Scrape court cases
+      ./scripts/scraping/hse-records --type=cases --page=5
+      ./scripts/scraping/hse-records -t cases -d appeals -p 1
+
+      # Scrape enforcement notices
+      ./scripts/scraping/hse-records --type=notices --page=2
+      ./scripts/scraping/hse-records -t notices -c Scotland -p 3
+
+    Available Options:
+      Types:      cases, notices
+      Databases:  convictions, appeals (for cases only)
+      Countries:  England, Scotland, Wales, Northern Ireland (for notices only)
+    """)
+  end
+end
+
+# Run the scraper
+HseRecordsScraper.run(System.argv())
