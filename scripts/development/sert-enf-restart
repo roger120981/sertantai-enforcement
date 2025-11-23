@@ -3,15 +3,20 @@
 # Forcefully stops and restarts backend (Phoenix) and frontend (SvelteKit) servers
 #
 # Usage:
-#   sert-enf-restart          # Restart servers only (leave Docker running)
-#   sert-enf-restart --docker # Restart servers + Docker containers
-#   sert-enf-restart --force  # Force kill immediately (skip graceful shutdown)
+#   sert-enf-restart           # Restart all servers
+#   sert-enf-restart --frontend # Restart only frontend (port 5173)
+#   sert-enf-restart --docker  # Restart servers + Docker containers
+#   sert-enf-restart --force   # Force kill immediately (skip graceful shutdown)
+#
+# Symlink Setup (to run from anywhere):
+#   sudo ln -s /home/jason/Desktop/sertantai-enforcement/scripts/development/sert-enf-restart /usr/local/bin/sert-enf-restart
 
 set -e
 
 # Parse arguments
 MANAGE_DOCKER=false
 FORCE_KILL=false
+FRONTEND_ONLY=false
 for arg in "$@"; do
     case $arg in
         --docker)
@@ -20,6 +25,9 @@ for arg in "$@"; do
         --force)
             FORCE_KILL=true
             ;;
+        --frontend)
+            FRONTEND_ONLY=true
+            ;;
     esac
 done
 
@@ -27,7 +35,11 @@ done
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
 
-echo "🔄 Restarting sertantai-enforcement development servers..."
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "🔄 Restarting frontend only..."
+else
+    echo "🔄 Restarting sertantai-enforcement development servers..."
+fi
 echo ""
 
 # Function to kill processes with timeout and retry
@@ -100,17 +112,26 @@ wait_for_port_free() {
 }
 
 # Stop existing processes
-echo "📋 Step 1/3: Stopping existing processes"
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "📋 Step 1/2: Stopping frontend process"
+else
+    echo "📋 Step 1/3: Stopping existing processes"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Kill Phoenix backend
-kill_process_safely "mix phx.server" "Phoenix backend"
+if [ "$FRONTEND_ONLY" = false ]; then
+    # Kill sertantai-auth service
+    kill_process_safely "mix phx.server.*sertantai_auth" "sertantai-auth service"
 
-# Kill Elixir BEAM processes (in case mix process doesn't catch them all)
-if pgrep -f "beam.smp.*sertantai" > /dev/null; then
-    echo "🔥 Stopping BEAM VM processes..."
-    pkill -9 -f "beam.smp.*sertantai" || true
-    echo "   ✅ BEAM processes stopped"
+    # Kill Phoenix backend
+    kill_process_safely "mix phx.server.*ehs_enforcement" "Phoenix backend"
+
+    # Kill Elixir BEAM processes (in case mix process doesn't catch them all)
+    if pgrep -f "beam.smp.*sertantai\|beam.smp.*ehs_enforcement" > /dev/null; then
+        echo "🔥 Stopping BEAM VM processes..."
+        pkill -9 -f "beam.smp.*sertantai\|beam.smp.*ehs_enforcement" || true
+        echo "   ✅ BEAM processes stopped"
+    fi
 fi
 
 # Kill SvelteKit frontend
@@ -125,12 +146,24 @@ fi
 echo ""
 
 # Wait for ports to be freed
-echo "📋 Step 2/3: Ensuring ports are available"
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "📋 Step 2/2: Ensuring port is available"
+else
+    echo "📋 Step 2/3: Ensuring ports are available"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-wait_for_port_free 4002  # Phoenix backend
+
+if [ "$FRONTEND_ONLY" = false ]; then
+    wait_for_port_free 4000  # sertantai-auth
+    wait_for_port_free 4002  # Phoenix backend
+fi
 wait_for_port_free 5173  # SvelteKit frontend
 
-echo "   ✅ Ports 4002 and 5173 are free"
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "   ✅ Port 5173 is free"
+else
+    echo "   ✅ Ports 4000, 4002, and 5173 are free"
+fi
 echo ""
 
 # Handle Docker if requested
@@ -158,7 +191,11 @@ if [ "$MANAGE_DOCKER" = true ]; then
 fi
 
 # Start servers
-echo "📋 Step 3/3: Starting development servers"
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "📋 Step 2/2: Starting frontend"
+else
+    echo "📋 Step 3/3: Starting development servers"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Verify PROJECT_ROOT and mix.exs exist
@@ -168,7 +205,7 @@ if [ ! -d "$PROJECT_ROOT" ] || [ ! -f "$PROJECT_ROOT/mix.exs" ]; then
 fi
 
 # Check Docker if not managing it
-if [ "$MANAGE_DOCKER" = false ]; then
+if [ "$MANAGE_DOCKER" = false ] && [ "$FRONTEND_ONLY" = false ]; then
     if ! docker ps | grep -q "ehs_dev_postgres"; then
         echo "⚠️  Docker containers not detected"
         echo "   Tip: Use 'sert-enf-restart --docker' to restart with Docker"
@@ -176,38 +213,92 @@ if [ "$MANAGE_DOCKER" = false ]; then
     fi
 fi
 
-echo "📦 Opening terminal windows..."
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "📦 Opening frontend tab..."
+else
+    echo "📦 Opening terminal tabs..."
+fi
 
-# Open Phoenix Backend terminal
-gnome-terminal --title="sertantai-enforcement-backend" -- bash -c "cd \"$PROJECT_ROOT\" && echo '🔥 Starting Phoenix backend on port 4002...' && echo \"📁 Working directory: \$(pwd)\" && echo '' && mix phx.server" &
+# Create a temporary launcher script
+AUTH_DIR="/home/jason/Desktop/sertantai_auth"
+LAUNCHER_SCRIPT=$(mktemp)
 
-# Wait a moment for first terminal to open
-sleep 0.5
+if [ "$FRONTEND_ONLY" = true ]; then
+    # Frontend only - just open one tab
+    cat > "$LAUNCHER_SCRIPT" << 'LAUNCHER_EOF'
+#!/bin/bash
 
-# Open SvelteKit Frontend terminal
-gnome-terminal --title="sertantai-enforcement-frontend" -- bash -c "cd \"$PROJECT_ROOT/frontend\" && echo '⚡ Starting SvelteKit frontend on port 5173...' && echo \"📁 Working directory: \$(pwd)\" && echo '' && npm run dev" &
+PROJECT_ROOT="__PROJECT_ROOT__"
 
-# Wait a moment
-sleep 0.5
+# Open SvelteKit frontend tab
+gnome-terminal --tab --title="sertantai-enforcement-frontend" --working-directory="$PROJECT_ROOT/frontend" -- bash -c 'echo "⚡ Starting SvelteKit frontend on port 5173..."; echo "📁 Working directory: $(pwd)"; echo ""; npm run dev; echo ""; echo "Service stopped. Press Enter to close tab..."; read' &
 
-# Open Console terminal
-gnome-terminal --title="sertantai-enforcement-console" -- bash -c "cd \"$PROJECT_ROOT\" && echo '💻 sertantai-enforcement Development Console' && echo \"📁 Working directory: \$(pwd)\" && echo '' && echo '📊 Available endpoints:' && echo '   Backend:  http://localhost:4002' && echo '   Frontend: http://localhost:5173' && echo '   Electric: http://localhost:3001' && echo '' && echo '🎮 Quick commands:' && echo '   Stop servers:     sert-enf-stop' && echo '   Restart:          sert-enf-restart' && echo '   Force restart:    sert-enf-restart --force' && echo '   Docker logs:      docker compose -f docker-compose.dev.yml logs -f' && echo '   Phoenix console:  iex -S mix phx.server' && echo '' && read -p 'Press Enter to close...'" &
+# Wait for all background processes
+wait
+LAUNCHER_EOF
+else
+    # All services - open all tabs
+    cat > "$LAUNCHER_SCRIPT" << 'LAUNCHER_EOF'
+#!/bin/bash
+
+AUTH_DIR="/home/jason/Desktop/sertantai_auth"
+PROJECT_ROOT="__PROJECT_ROOT__"
+
+# Open sertantai-auth tab if directory exists
+if [ -d "$AUTH_DIR" ]; then
+    gnome-terminal --tab --title="sertantai-auth-service" --working-directory="$AUTH_DIR" -- bash -c 'echo "🔐 Starting sertantai-auth service on port 4000..."; echo "📁 Working directory: $(pwd)"; echo ""; mix phx.server; echo ""; echo "Service stopped. Press Enter to close tab..."; read' &
+    sleep 0.3
+fi
+
+# Open Phoenix backend tab
+gnome-terminal --tab --title="sertantai-enforcement-backend" --working-directory="$PROJECT_ROOT" -- bash -c 'echo "🔥 Starting Phoenix backend on port 4002..."; echo "📁 Working directory: $(pwd)"; echo ""; mix phx.server; echo ""; echo "Service stopped. Press Enter to close tab..."; read' &
+sleep 0.3
+
+# Open SvelteKit frontend tab
+gnome-terminal --tab --title="sertantai-enforcement-frontend" --working-directory="$PROJECT_ROOT/frontend" -- bash -c 'echo "⚡ Starting SvelteKit frontend on port 5173..."; echo "📁 Working directory: $(pwd)"; echo ""; npm run dev; echo ""; echo "Service stopped. Press Enter to close tab..."; read' &
+
+# Wait for all background processes
+wait
+LAUNCHER_EOF
+fi
+
+# Replace PROJECT_ROOT placeholder
+sed -i "s|__PROJECT_ROOT__|$PROJECT_ROOT|g" "$LAUNCHER_SCRIPT"
+chmod +x "$LAUNCHER_SCRIPT"
+
+# Check if auth directory exists and warn (only if not frontend-only mode)
+if [ "$FRONTEND_ONLY" = false ] && [ ! -d "$AUTH_DIR" ]; then
+    echo "⚠️  Warning: sertantai-auth not found at $AUTH_DIR"
+    echo "   JWT authentication will not work without it!"
+fi
+
+# Execute the launcher script in a new gnome-terminal window
+gnome-terminal --window -- bash -c "$LAUNCHER_SCRIPT; rm -f $LAUNCHER_SCRIPT"
 
 echo ""
-echo "✅ Development servers restarted successfully!"
-echo ""
-echo "📊 URLs:"
-echo "   Backend:  http://localhost:4002"
-echo "   Frontend: http://localhost:5173"
-echo "   Electric: http://localhost:3001"
+if [ "$FRONTEND_ONLY" = true ]; then
+    echo "✅ Frontend restarted successfully!"
+    echo ""
+    echo "📊 URL:"
+    echo "   Frontend: http://localhost:5173  (svelte)"
+else
+    echo "✅ Development servers restarted successfully!"
+    echo ""
+    echo "📊 URLs:"
+    echo "   Auth:     http://localhost:4000  (sertantai-auth)"
+    echo "   Backend:  http://localhost:4002  (ehs-enforcement)"
+    echo "   Frontend: http://localhost:5173  (svelte)"
+    echo "   Electric: http://localhost:3001  (sync)"
+fi
 echo ""
 echo "💡 Tips:"
-echo "   Stop servers:     sert-enf-stop"
-echo "   Restart again:    sert-enf-restart"
-echo "   Force restart:    sert-enf-restart --force"
+echo "   Stop servers:      sert-enf-stop"
+echo "   Restart all:       sert-enf-restart"
+echo "   Restart frontend:  sert-enf-restart --frontend"
+echo "   Force restart:     sert-enf-restart --force"
 if [ "$MANAGE_DOCKER" = true ]; then
     echo "   (Docker was restarted)"
-else
+elif [ "$FRONTEND_ONLY" = false ]; then
     echo "   (Docker was not restarted - use --docker flag to restart Docker)"
 fi
 echo ""

@@ -5,6 +5,9 @@
 # Usage:
 #   sert-enf-stop          # Stop servers only (leave Docker running)
 #   sert-enf-stop --docker # Stop servers + Docker containers
+#
+# Symlink Setup (to run from anywhere):
+#   sudo ln -s /home/jason/Desktop/sertantai-enforcement/scripts/development/sert-enf-stop /usr/local/bin/sert-enf-stop
 
 set -e
 
@@ -20,32 +23,50 @@ PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
 
 echo "🛑 Stopping sertantai-enforcement development servers..."
 
-# Kill sertantai-auth service
-if pgrep -f "mix phx.server.*sertantai_auth" > /dev/null; then
-    echo "🔐 Killing sertantai-auth service..."
-    pkill -f "mix phx.server.*sertantai_auth" || true
+# Kill sertantai-auth service (port 4000)
+if lsof -ti:4000 >/dev/null 2>&1; then
+    echo "🔐 Killing sertantai-auth service (port 4000)..."
+    lsof -ti:4000 | xargs kill -9 2>/dev/null || true
+    sleep 0.5
     echo "✅ sertantai-auth service killed"
 else
-    echo "ℹ️  No sertantai-auth service found"
+    echo "ℹ️  No sertantai-auth service found (port 4000 not in use)"
 fi
 
-# Kill any EHS Enforcement Phoenix processes
-if pgrep -f "mix phx.server.*ehs_enforcement" > /dev/null; then
-    echo "🔥 Killing Phoenix backend processes..."
-    pkill -f "mix phx.server.*ehs_enforcement" || true
+# Kill any EHS Enforcement Phoenix processes (port 4002)
+if lsof -ti:4002 >/dev/null 2>&1; then
+    echo "🔥 Killing Phoenix backend processes (port 4002)..."
+    lsof -ti:4002 | xargs kill -9 2>/dev/null || true
+    sleep 0.5
     echo "✅ Phoenix processes killed"
 else
-    echo "ℹ️  No Phoenix backend processes found"
+    echo "ℹ️  No Phoenix backend processes found (port 4002 not in use)"
 fi
 
 # Kill any Vite/npm processes for this project (port 5173)
-if pgrep -f "vite dev.*5173" > /dev/null; then
-    echo "⚡ Killing SvelteKit frontend processes..."
-    pkill -f "vite dev.*5173" || true
+if lsof -ti:5173 >/dev/null 2>&1; then
+    echo "⚡ Killing SvelteKit frontend processes (port 5173)..."
+    lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+    sleep 0.5
     echo "✅ SvelteKit processes killed"
 else
-    echo "ℹ️  No SvelteKit frontend processes found"
+    echo "ℹ️  No SvelteKit frontend processes found (port 5173 not in use)"
 fi
+
+# Clean up any remaining Elixir BEAM processes
+if pgrep -f "beam.smp.*mix phx.server" > /dev/null; then
+    echo "🧹 Cleaning up remaining BEAM VM processes..."
+    pkill -9 -f "beam.smp.*mix phx.server" || true
+    echo "✅ BEAM processes cleaned up"
+fi
+
+# Kill the bash wrapper processes to close the tabs
+echo "🗑️  Closing terminal tabs..."
+pkill -f "bash -c.*Starting sertantai-auth service" 2>/dev/null || true
+pkill -f "bash -c.*Starting Phoenix backend" 2>/dev/null || true
+pkill -f "bash -c.*Starting SvelteKit frontend" 2>/dev/null || true
+sleep 0.5
+echo "✅ Terminal tabs closed"
 
 # Stop Docker services if requested
 if [ "$MANAGE_DOCKER" = true ]; then

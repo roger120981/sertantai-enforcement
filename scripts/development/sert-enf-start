@@ -1,10 +1,13 @@
 #!/bin/bash
 # sertantai-enforcement Development Server Starter
-# Starts backend (Phoenix) and frontend (SvelteKit) in separate terminal tabs
+# Starts backend (Phoenix) and frontend (SvelteKit) in terminal tabs
 #
 # Usage:
 #   sert-enf-start          # Start servers only (assumes Docker already running)
 #   sert-enf-start --docker # Start Docker containers + servers
+#
+# Symlink Setup (to run from anywhere):
+#   sudo ln -s /home/jason/Desktop/sertantai-enforcement/scripts/development/sert-enf-start /usr/local/bin/sert-enf-start
 
 set -e
 
@@ -71,40 +74,55 @@ else
     # Check if Docker services are running (warning only)
     if ! docker ps | grep -q "ehs_dev_postgres"; then
         echo "⚠️  Docker containers not detected"
-        echo "   Tip: Use 'sert-enf-start --docker' to auto-start containers"
+        echo "   Tip: Use 'sert-enf-start-tabbed --docker' to auto-start containers"
         echo ""
     fi
 fi
 
-echo "📦 Opening terminal windows..."
+echo "📦 Opening terminal tabs..."
 
-# Open sertantai-auth service terminal (port 4000)
+# Create a temporary launcher script
 AUTH_DIR="/home/jason/Desktop/sertantai_auth"
+LAUNCHER_SCRIPT=$(mktemp)
+
+cat > "$LAUNCHER_SCRIPT" << 'LAUNCHER_EOF'
+#!/bin/bash
+
+AUTH_DIR="/home/jason/Desktop/sertantai_auth"
+PROJECT_ROOT="__PROJECT_ROOT__"
+
+# Open sertantai-auth tab if directory exists
 if [ -d "$AUTH_DIR" ]; then
-    gnome-terminal --title="sertantai-auth-service" -- bash -c "cd \"$AUTH_DIR\" && echo '🔐 Starting sertantai-auth service on port 4000...' && echo \"📁 Working directory: \$(pwd)\" && echo '' && mix phx.server" &
-    sleep 0.5
-else
+    gnome-terminal --tab --title="sertantai-auth-service" --working-directory="$AUTH_DIR" -- bash -c 'echo "🔐 Starting sertantai-auth service on port 4000..."; echo "📁 Working directory: $(pwd)"; echo ""; mix phx.server; echo ""; echo "Service stopped. Press Enter to close tab..."; read' &
+    sleep 0.3
+fi
+
+# Open Phoenix backend tab
+gnome-terminal --tab --title="sertantai-enforcement-backend" --working-directory="$PROJECT_ROOT" -- bash -c 'echo "🔥 Starting Phoenix backend on port 4002..."; echo "📁 Working directory: $(pwd)"; echo ""; mix phx.server; echo ""; echo "Service stopped. Press Enter to close tab..."; read' &
+sleep 0.3
+
+# Open SvelteKit frontend tab
+gnome-terminal --tab --title="sertantai-enforcement-frontend" --working-directory="$PROJECT_ROOT/frontend" -- bash -c 'echo "⚡ Starting SvelteKit frontend on port 5173..."; echo "📁 Working directory: $(pwd)"; echo ""; npm run dev; echo ""; echo "Service stopped. Press Enter to close tab..."; read' &
+
+# Wait for all background processes
+wait
+LAUNCHER_EOF
+
+# Replace PROJECT_ROOT placeholder
+sed -i "s|__PROJECT_ROOT__|$PROJECT_ROOT|g" "$LAUNCHER_SCRIPT"
+chmod +x "$LAUNCHER_SCRIPT"
+
+# Check if auth directory exists and warn
+if [ ! -d "$AUTH_DIR" ]; then
     echo "⚠️  Warning: sertantai-auth not found at $AUTH_DIR"
     echo "   JWT authentication will not work without it!"
 fi
 
-# Open Phoenix Backend terminal (port 4002)
-gnome-terminal --title="sertantai-enforcement-backend" -- bash -c "cd \"$PROJECT_ROOT\" && echo '🔥 Starting Phoenix backend on port 4002...' && echo \"📁 Working directory: \$(pwd)\" && echo '' && mix phx.server" &
-
-# Wait a moment for backend to start
-sleep 0.5
-
-# Open SvelteKit Frontend terminal (port 5173)
-gnome-terminal --title="sertantai-enforcement-frontend" -- bash -c "cd \"$PROJECT_ROOT/frontend\" && echo '⚡ Starting SvelteKit frontend on port 5173...' && echo \"📁 Working directory: \$(pwd)\" && echo '' && npm run dev" &
-
-# Wait a moment
-sleep 0.5
-
-# Open Console terminal
-gnome-terminal --title="sertantai-enforcement-console" -- bash -c "cd \"$PROJECT_ROOT\" && echo '💻 sertantai-enforcement Development Console' && echo \"📁 Working directory: \$(pwd)\" && echo '' && echo '📊 Available endpoints:' && echo '   Auth:     http://localhost:4000' && echo '   Backend:  http://localhost:4002' && echo '   Frontend: http://localhost:5173' && echo '   Electric: http://localhost:3001' && echo '' && echo '🎮 Quick commands:' && echo '   Stop servers:     sert-enf-stop' && echo '   Restart:          sert-enf-stop && sert-enf-start' && echo '   Docker logs:      docker compose -f docker-compose.dev.yml logs -f' && echo '   Phoenix console:  iex -S mix phx.server' && echo '' && read -p 'Press Enter to close...'" &
+# Execute the launcher script in a new gnome-terminal window
+gnome-terminal --window -- bash -c "$LAUNCHER_SCRIPT; rm -f $LAUNCHER_SCRIPT"
 
 echo ""
-echo "✅ Development servers starting in new terminal windows!"
+echo "✅ Development servers starting in terminal tabs!"
 echo ""
 echo "📊 URLs:"
 echo "   Auth:     http://localhost:4000  (sertantai-auth)"
