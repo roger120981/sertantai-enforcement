@@ -84,10 +84,18 @@
 	}
 
 	async function confirmRename(id: string) {
-		if (renameValue.trim() && renameValue !== renameValue) {
-			await viewActions.rename(id, renameValue.trim())
+		const view = $savedViews.find((v) => v.id === id)
+		if (!view) return
+
+		const trimmedValue = renameValue.trim()
+
+		// Only rename if value changed and is not empty
+		if (trimmedValue && trimmedValue !== view.name) {
+			await viewActions.rename(id, trimmedValue)
 		}
+
 		renamingId = null
+		renameValue = ''
 	}
 
 	function cancelRename() {
@@ -307,17 +315,44 @@
 						{#each sortedViews as view, i}
 							{#if renamingId === view.id}
 								<div class="px-3 py-2 bg-gray-50 rounded-md mb-1">
-									<input
-										type="text"
-										bind:value={renameValue}
-										on:blur={() => confirmRename(view.id)}
-										on:keydown={(e) => {
-											if (e.key === 'Enter') confirmRename(view.id)
-											if (e.key === 'Escape') cancelRename()
-										}}
-										class="w-full px-2 py-1 text-sm border border-indigo-500 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-										autofocus
-									/>
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											bind:value={renameValue}
+											on:keydown={(e) => {
+												if (e.key === 'Enter') {
+													e.preventDefault()
+													confirmRename(view.id)
+												}
+												if (e.key === 'Escape') {
+													e.preventDefault()
+													cancelRename()
+												}
+											}}
+											class="flex-1 px-2 py-1 text-sm border border-indigo-500 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+											autofocus
+										/>
+										<button
+											type="button"
+											on:click={() => confirmRename(view.id)}
+											class="p-1 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+											title="Save (Enter)"
+										>
+											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+											</svg>
+										</button>
+										<button
+											type="button"
+											on:click={cancelRename}
+											class="p-1 bg-gray-400 text-white rounded hover:bg-gray-500"
+											title="Cancel (Esc)"
+										>
+											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</div>
 								</div>
 							{:else}
 								<button
