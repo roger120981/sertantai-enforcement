@@ -211,3 +211,42 @@ export interface Legislation {
   created_at: string // ISO datetime string
   updated_at: string // ISO datetime string
 }
+
+/**
+ * SavedView Type
+ * User-saved table configurations for quick reuse
+ * Local-only storage (not synced to backend)
+ */
+export interface SavedView {
+  // Identity
+  id: string
+  name: string
+  description?: string
+
+  // Complete table configuration
+  config: {
+    filters: Array<{
+      columnId: string
+      operator: string
+      value: any
+    }>
+    sort: {
+      columnId: string
+      direction: 'asc' | 'desc'
+    } | null
+    columns: string[]
+    columnOrder: string[]
+    columnWidths: Record<string, number>
+    pageSize: number
+    grouping?: string[]
+  }
+
+  // Optional: Original NL query
+  originalQuery?: string
+
+  // Metadata
+  createdAt: number
+  updatedAt: number
+  usageCount: number
+  lastUsed: number
+}

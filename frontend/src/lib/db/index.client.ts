@@ -12,7 +12,7 @@
  */
 
 import { browser } from '$app/environment'
-import type { Case, Agency, Offender, ScrapeSession } from './schema'
+import type { Case, Agency, Offender, ScrapeSession, SavedView } from './schema'
 import type { Collection } from '@tanstack/db'
 
 // Collection singletons (initialized lazily in browser)
@@ -20,6 +20,7 @@ let casesCol: Collection<Case, string> | null = null
 let agenciesCol: Collection<Agency, string> | null = null
 let offendersCol: Collection<Offender, string> | null = null
 let scrapeSessionsCol: Collection<ScrapeSession, string> | null = null
+let savedViewsCol: Collection<SavedView, string> | null = null
 
 /**
  * Initialize collections (browser only)
@@ -29,7 +30,7 @@ async function ensureCollections() {
     throw new Error('TanStack DB collections can only be initialized in the browser')
   }
 
-  if (casesCol && agenciesCol && offendersCol && scrapeSessionsCol) {
+  if (casesCol && agenciesCol && offendersCol && scrapeSessionsCol && savedViewsCol) {
     return // Already initialized
   }
 
@@ -59,6 +60,13 @@ async function ensureCollections() {
   scrapeSessionsCol = createCollection(
     localStorageCollectionOptions<ScrapeSession, string>({
       storageKey: 'ehs-enforcement-scrape-sessions',
+      getKey: (item) => item.id,
+    })
+  )
+
+  savedViewsCol = createCollection(
+    localStorageCollectionOptions<SavedView, string>({
+      storageKey: 'ehs-enforcement-saved-views',
       getKey: (item) => item.id,
     })
   )
@@ -94,6 +102,14 @@ export async function getOffendersCollection(): Promise<Collection<Offender, str
 export async function getScrapeSessionsCollection(): Promise<Collection<ScrapeSession, string>> {
   await ensureCollections()
   return scrapeSessionsCol!
+}
+
+/**
+ * Get saved views collection (browser only)
+ */
+export async function getSavedViewsCollection(): Promise<Collection<SavedView, string>> {
+  await ensureCollections()
+  return savedViewsCol!
 }
 
 // Legacy exports for backward compatibility (will throw on server)
@@ -147,7 +163,7 @@ export function getDBStatus() {
     }
   }
 
-  const initialized = casesCol !== null && agenciesCol !== null && offendersCol !== null && scrapeSessionsCol !== null
+  const initialized = casesCol !== null && agenciesCol !== null && offendersCol !== null && scrapeSessionsCol !== null && savedViewsCol !== null
 
   return {
     initialized,
@@ -157,6 +173,7 @@ export function getDBStatus() {
           agencies: agenciesCol!.id,
           offenders: offendersCol!.id,
           scrapeSessions: scrapeSessionsCol!.id,
+          savedViews: savedViewsCol!.id,
         }
       : {},
     storage: 'localStorage (IndexedDB)',

@@ -2,10 +2,15 @@
 	import { browser } from '$app/environment'
 	import { onMount } from 'svelte'
 	import { TableKit } from '@shotleybuilder/svelte-table-kit'
-	import type { ColumnDef } from '@tanstack/svelte-table'
+	import type { ColumnDef, Table } from '@tanstack/svelte-table'
 	import { useUnifiedData, type UnifiedRecord } from '$lib/query/unified'
 	import NaturalLanguageQuery from '$lib/components/NaturalLanguageQuery.svelte'
 	import { queryState } from '$lib/stores/query-state'
+	import ViewSelector from '$lib/components/table-views/ViewSelector.svelte'
+	import SaveViewModal from '$lib/components/table-views/SaveViewModal.svelte'
+	import { activeViewModified, viewActions } from '$lib/stores/saved-views'
+	import type { TableConfig } from '$lib/components/table-views/types'
+	import type { SavedView } from '$lib/db/schema'
 
 	// AI-generated configuration from NL query
 	let aiFilters: any[] = []
@@ -13,6 +18,11 @@
 	let aiColumns: string[] = []
 	let aiColumnOrder: string[] = []
 	let configVersion = 0 // Track config version for reactive updates
+
+	// Saved views state
+	let showSaveModal = false
+	let capturedConfig: TableConfig | null = null
+	let currentOriginalQuery: string | undefined = undefined
 
 	// Check for query state from store on mount (from homepage navigation)
 	onMount(() => {
@@ -41,10 +51,80 @@
 		aiColumns = columns || []
 		aiColumnOrder = columnOrder || []
 
+		// Clear active view when new query is made
+		viewActions.clearActive()
+
 		// Increment version to trigger config update (v0.5.0 watches config.id)
 		configVersion++
 		console.log('[Data Page] Updated config version:', configVersion)
 	}
+
+	// Capture current table config (simplified - use TableKit config prop)
+	function captureCurrentConfig(): TableConfig {
+		// For Phase 4.1, we'll capture the current AI config
+		// In future versions, we can capture actual table state via TableKit API
+		return {
+			filters: aiFilters,
+			sort: aiSort,
+			columns: aiColumns.length > 0 ? aiColumns : columns.map(c => String(c.id)),
+			columnOrder: aiColumnOrder.length > 0 ? aiColumnOrder : columns.map(c => String(c.id)),
+			columnWidths: {},
+			pageSize: 25,
+			grouping: []
+		}
+	}
+
+	// Apply saved view configuration via TableKit config prop
+	function applyViewConfig(config: TableConfig) {
+		console.log('[Data Page] Applying view config:', config)
+
+		// Set AI config which will reactively update TableKit
+		aiFilters = config.filters
+		aiSort = config.sort
+		aiColumns = config.columns
+		aiColumnOrder = config.columnOrder
+		configVersion++
+	}
+
+	// Handle view selection
+	async function handleViewSelected(event: CustomEvent<{ view: SavedView }>) {
+		const view = event.detail.view
+		console.log('[Data Page] View selected:', view.name)
+
+		// Clear AI config
+		aiFilters = []
+		aiSort = null
+		aiColumns = []
+		aiColumnOrder = []
+		configVersion++
+
+		// Apply view config to table
+		setTimeout(() => {
+			applyViewConfig(view.config)
+			currentOriginalQuery = view.originalQuery
+		}, 100)
+	}
+
+	// Handle save view button click
+	function handleSaveView() {
+		try {
+			capturedConfig = captureCurrentConfig()
+			console.log('[Data Page] Opening save modal with config:', capturedConfig)
+			showSaveModal = true
+		} catch (err) {
+			console.error('[Data Page] Failed to capture table config:', err)
+			alert('Failed to capture table configuration. Please try again.')
+		}
+	}
+
+	// Handle view saved
+	function handleViewSaved(event: CustomEvent<{ id: string; name: string }>) {
+		console.log('[Data Page] View saved:', event.detail.name)
+		// Modal will close automatically
+	}
+
+	// Removed table state tracking for Phase 4.1
+	// Will add in Phase 4.2 when we have proper TableKit API access
 
 	// Build TableKit configuration from AI (reactive - updates when configVersion changes)
 	$: hasAiConfig = aiFilters.length > 0 || aiSort !== null || aiColumns.length > 0 || aiColumnOrder.length > 0
@@ -339,6 +419,34 @@
 		<NaturalLanguageQuery onQuerySuccess={handleQuerySuccess} placeholder="Ask about enforcement data in plain English..." />
 	{/if}
 
+	<!-- Table Controls: View Selector & Save Button -->
+	{#if browser && $unifiedData?.data?.data}
+		<div class="flex items-center justify-between gap-4 mb-4">
+			<!-- Left: View Selector -->
+			<ViewSelector on:viewSelected={handleViewSelected} />
+
+			<!-- Right: Save View Button -->
+			<button
+				type="button"
+				on:click={handleSaveView}
+				class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+					/>
+				</svg>
+				Save View
+				{#if $activeViewModified}
+					<span class="text-orange-300" title="Current view has been modified">✏️</span>
+				{/if}
+			</button>
+		</div>
+	{/if}
+
 	{#if !browser || $unifiedData?.isLoading}
 		<div class="px-4 py-12 text-center bg-white rounded-lg border border-gray-200">
 			<div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -436,3 +544,13 @@
 		{/if}
 	{/if}
 </div>
+
+<!-- Save View Modal -->
+{#if browser && showSaveModal && capturedConfig}
+	<SaveViewModal
+		bind:open={showSaveModal}
+		config={capturedConfig}
+		originalQuery={currentOriginalQuery}
+		on:save={handleViewSaved}
+	/>
+{/if}
