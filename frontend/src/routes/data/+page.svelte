@@ -6,11 +6,8 @@
 	import { useUnifiedData, type UnifiedRecord } from '$lib/query/unified'
 	import NaturalLanguageQuery from '$lib/components/NaturalLanguageQuery.svelte'
 	import { queryState } from '$lib/stores/query-state'
-	import ViewSelector from '$lib/components/table-views/ViewSelector.svelte'
-	import SaveViewModal from '$lib/components/table-views/SaveViewModal.svelte'
-	import { activeViewId, activeViewModified, viewActions } from '$lib/stores/saved-views'
-	import type { TableConfig } from '$lib/components/table-views/types'
-	import type { SavedView } from '$lib/db/schema'
+	import { ViewSelector, SaveViewModal, activeViewId, activeViewModified, viewActions } from 'svelte-table-views'
+	import type { TableConfig, SavedView } from 'svelte-table-views'
 
 	// AI-generated configuration from NL query
 	let aiFilters: any[] = []
