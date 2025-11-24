@@ -61,7 +61,10 @@ defmodule EhsEnforcementWeb.Endpoint do
   plug Plug.Head
 
   # CORS configuration for frontend (localhost:5173)
-  plug CORSPlug, origin: ["http://localhost:5173"]
+  # credentials: true is required for session cookies to work cross-origin
+  plug CORSPlug,
+    origin: ["http://localhost:5173"],
+    credentials: true
 
   plug Plug.Session, @session_options
   plug EhsEnforcementWeb.Router
