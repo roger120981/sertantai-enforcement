@@ -2,6 +2,9 @@ defmodule EhsEnforcementWeb.Components.EnforcementTimelineTest do
   use EhsEnforcementWeb.ConnCase
   import Phoenix.LiveViewTest
 
+  require Ash.Query
+  import Ash.Expr
+
   alias EhsEnforcement.Enforcement
   alias EhsEnforcementWeb.EnforcementTimelineComponent
 
@@ -73,11 +76,11 @@ defmodule EhsEnforcementWeb.Components.EnforcementTimelineTest do
 
       # Load cases and notices with related data
       cases =
-        Enforcement.list_cases!(
-          filter: [offender_id: offender.id],
-          load: [:agency, :offender],
-          sort: [offence_action_date: :desc]
-        )
+        EhsEnforcement.Enforcement.Case
+        |> Ash.Query.filter(offender_id == ^offender.id)
+        |> Ash.Query.load([:agency, :offender])
+        |> Ash.Query.sort(offence_action_date: :desc)
+        |> Ash.read!()
 
       # No notices since Notice resource is not implemented
       notices = []
@@ -407,11 +410,11 @@ defmodule EhsEnforcementWeb.Components.EnforcementTimelineTest do
       end
 
       all_cases =
-        Enforcement.list_cases!(
-          filter: [offender_id: offender.id],
-          load: [:agency],
-          sort: [offence_action_date: :desc]
-        )
+        EhsEnforcement.Enforcement.Case
+        |> Ash.Query.filter(offender_id == ^offender.id)
+        |> Ash.Query.load([:agency])
+        |> Ash.Query.sort(offence_action_date: :desc)
+        |> Ash.read!()
 
       long_timeline = build_timeline(all_cases, [])
 

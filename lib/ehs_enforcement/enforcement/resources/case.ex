@@ -825,8 +825,11 @@ defmodule EhsEnforcement.Enforcement.Case do
           |> Enum.filter(&(&1.offender_id == offender_id))
           |> Enum.map(fn case_record ->
             case Ash.load(case_record, :agency) do
-              {:ok, loaded_case} -> loaded_case.agency.name
-              _ -> nil
+              {:ok, loaded_case} ->
+                if loaded_case.agency, do: loaded_case.agency.name, else: nil
+
+              _ ->
+                nil
             end
           end)
           |> Enum.filter(&(&1 != nil))
@@ -843,8 +846,11 @@ defmodule EhsEnforcement.Enforcement.Case do
           |> Enum.filter(&(&1.offender_id == offender_id))
           |> Enum.map(fn notice ->
             case Ash.load(notice, :agency) do
-              {:ok, loaded_notice} -> loaded_notice.agency.name
-              _ -> nil
+              {:ok, loaded_notice} ->
+                if loaded_notice.agency, do: loaded_notice.agency.name, else: nil
+
+              _ ->
+                nil
             end
           end)
           |> Enum.filter(&(&1 != nil))
