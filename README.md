@@ -11,7 +11,6 @@ This Phoenix LiveView application collects and manages enforcement data from UK 
 - **Phoenix 1.7+** - Web framework with LiveView
 - **Ash Framework 3.0+** - Declarative data modeling and business logic
 - **PostgreSQL 16** - Primary database
-- **Airtable** - Data integration and publishing
 - **Docker** - Containerized deployment
 
 ## Development Setup
@@ -35,7 +34,7 @@ This Phoenix LiveView application collects and manages enforcement data from UK 
 2. **Create development environment file:**
    ```bash
    cp .env.dev.example .env.dev
-   # Edit .env.dev with your values (GitHub OAuth, Airtable API, etc.)
+   # Edit .env.dev with your values (GitHub OAuth, etc.)
    ```
 
 3. **Start development environment:**
@@ -95,7 +94,7 @@ docker compose -f docker-compose.dev.yml --profile integration up -d
 - **Port:** 4002 (matches production)
 - **Database:** ehs_enforcement_dev
 - **Environment:** .env.dev (create from .env.dev.example)
-- **API Keys:** Configure GitHub OAuth and Airtable in .env.dev
+- **API Keys:** Configure GitHub OAuth in .env.dev
 
 See [DOCKER_DEV_GUIDE.md](./docs-dev/dev/deployment/current/DOCKER_DEV_GUIDE.md) for detailed setup instructions.
 
@@ -187,7 +186,7 @@ See [Deployment Documentation](./docs-dev/dev/deployment/current/DEPLOYMENT_CURR
 - **Ash Resources:** Declarative data models in `lib/ehs_enforcement/*/resources/`
 - **LiveView Pages:** Real-time UI in `lib/ehs_enforcement_web/live/`
 - **Scrapers:** Agency data collection in `lib/ehs_enforcement/scraping/`
-- **Integrations:** Airtable sync in `lib/ehs_enforcement/integrations/`
+- **Integrations:** External API integrations in `lib/ehs_enforcement/integrations/`
 
 ### Ash Framework
 
@@ -215,7 +214,6 @@ See [CLAUDE.md](./CLAUDE.md) for full Ash framework guidelines.
 
 ### Planning Documents
 - [Implementation Plan](./docs/IMPLEMENTATION_PLAN.md) - Project roadmap
-- [Airtable Client Refactor](./docs/AIRTABLE_CLIENT_REFACTOR.md) - Integration architecture
 
 ## Project Structure
 
@@ -226,7 +224,7 @@ ehs_enforcement/
 │   │   ├── accounts/             # User authentication (Ash)
 │   │   ├── agencies/             # Agency-specific scrapers
 │   │   ├── enforcement/          # Core enforcement resources (Ash)
-│   │   ├── integrations/         # Airtable, external APIs
+│   │   ├── integrations/         # External API integrations
 │   │   └── scraping/             # Web scraping coordination
 │   └── ehs_enforcement_web/      # Web interface
 │       ├── live/                 # LiveView pages

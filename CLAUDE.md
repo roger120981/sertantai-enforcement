@@ -172,19 +172,19 @@ This is a Phoenix LiveView application for collecting and managing UK environmen
 
 ### Core Components
 
-**Legacy Structure (being refactored)**:
-- `Legl.Countries.Uk.LeglEnforcement.*` - HSE enforcement processing modules
-- `Legl.Services.Hse.*` - HSE website scraping clients
-- `Legl.Services.Airtable.*` - Airtable API integration
+**Legacy Structure (removed)**:
+- `Legl.Countries.Uk.LeglEnforcement.*` - HSE enforcement processing modules (removed)
+- `Legl.Services.Hse.*` - HSE website scraping clients (removed)
+- `Legl.Services.Airtable.*` - Airtable API integration (removed Nov 2025)
 
-**Target Structure**:
+**Current Structure**:
 - `EhsEnforcement.Agencies.*` - Agency-specific data collection and processing
-- `EhsEnforcement.Integrations.*` - External service integrations (Airtable, etc.)
-- `EhsEnforcement.Enforcement.*` - Core enforcement data models (future Ash resources)
+- `EhsEnforcement.Integrations.*` - External service integrations
+- `EhsEnforcement.Enforcement.*` - Core enforcement data models (Ash resources)
 
 ### Key Dependencies
 
-- **Database**: PostgreSQL (via Ecto) + Airtable integration
+- **Database**: PostgreSQL (via Ecto and Ash)
 - **HTTP Clients**: Tesla, Req for external API calls
 - **Phoenix 1.7+** - Web framework
 - **Ash 3.0+** - Data modeling and business logic framework
@@ -196,10 +196,10 @@ This is a Phoenix LiveView application for collecting and managing UK environmen
 
 ### Data Flow
 
-1. **HSE Scraping**: `ClientCases`/`ClientNotices` modules fetch data from HSE website
-2. **Processing**: HSE modules parse and structure enforcement data
-3. **Storage**: Data synced to Airtable (primary) with future PostgreSQL caching
-4. **UI**: Phoenix LiveView interfaces for monitoring and management
+1. **Web Scraping**: Agency-specific scrapers fetch data from regulator websites (HSE, EA, SEPA, NRW)
+2. **Processing**: Scrapers parse and structure enforcement data
+3. **Storage**: Data stored in PostgreSQL via Ash resources
+4. **UI**: Svelte 5 frontend with Phoenix backend API
 
 ### Current Development Phase
 
@@ -207,9 +207,9 @@ This is a Phoenix LiveView application for collecting and managing UK environmen
 
 ### Configuration
 
-- Airtable API credentials via `AT_UK_E_API_KEY` environment variable
 - Database configuration in `config/` directory
-- Agency-specific settings planned for `config/runtime.exs`
+- Agency-specific settings in `config/runtime.exs`
+- Environment variables for GitHub OAuth and other external services
 
 ### Testing
 
