@@ -173,7 +173,7 @@ defmodule EhsEnforcementWeb.Router do
     get "/user", CurrentUserController, :show
   end
 
-  # Unified Data API (outside Api namespace for now)
+  # Unified Data API and Admin API endpoints
   scope "/api", EhsEnforcementWeb do
     pipe_through :api
 
@@ -183,6 +183,11 @@ defmodule EhsEnforcementWeb.Router do
     # Natural Language Query Translation
     post "/nl-query", NLQueryController, :translate
     post "/nl-query/test", NLQueryController, :test
+  end
+
+  # Admin/Svelte Frontend API endpoints
+  scope "/api", EhsEnforcementWeb.Api do
+    pipe_through :api
 
     # Admin API endpoints
     get "/admin/stats", AdminController, :stats
