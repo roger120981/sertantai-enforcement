@@ -92,7 +92,7 @@ defmodule EhsEnforcementWeb.ScrapingSSEController do
 
       {:stopped, _} ->
         Logger.info("SSE session stopped: #{session_id}")
-        send_sse_event(conn, "stopped", %{})
+        _ = send_sse_event(conn, "stopped", %{})
         PubSub.unsubscribe(EhsEnforcement.PubSub, "scrape_session:#{session_id}")
         conn
 

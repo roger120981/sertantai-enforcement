@@ -177,6 +177,7 @@ defmodule EhsEnforcementWeb.Plugs.JwtAuth do
 
   # Set tenant context in database session for RLS policies
   # This calls the set_current_org_id() PostgreSQL function
+  # Note: org_id is guaranteed to be a binary string by extract_org_id/1
   defp set_tenant_context(org_id) when is_binary(org_id) do
     # Convert UUID string to Ecto.UUID type for PostgreSQL
     with {:ok, uuid_binary} <- Ecto.UUID.dump(org_id),
@@ -193,9 +194,5 @@ defmodule EhsEnforcementWeb.Plugs.JwtAuth do
         Logger.error("Failed to set tenant context: #{inspect(error)}")
         {:error, "failed_to_set_tenant_context"}
     end
-  end
-
-  defp set_tenant_context(_) do
-    {:error, "invalid_org_id"}
   end
 end

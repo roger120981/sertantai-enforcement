@@ -96,18 +96,19 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
       Logger.info("Phase 4 complete: Created #{created_count}, Updated #{updated_count}")
 
       # Broadcast completion
-      broadcast_completed(session_id, %{
-        records_found: length(aggregated_list),
-        records_existing: length(existing_notices),
-        records_created: created_count,
-        records_updated: updated_count
-      })
+      _ =
+        broadcast_completed(session_id, %{
+          records_found: length(aggregated_list),
+          records_existing: length(existing_notices),
+          records_created: created_count,
+          records_updated: updated_count
+        })
 
       {:ok, %{created: created_count, updated: updated_count}}
     rescue
       error ->
         Logger.error("HSE notice batch scraping failed: #{inspect(error)}")
-        broadcast_error(session_id, %{message: "Scraping failed: #{inspect(error)}"})
+        _ = broadcast_error(session_id, %{message: "Scraping failed: #{inspect(error)}"})
         {:error, error}
     end
   end
@@ -133,7 +134,7 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
 
         {:error, reason} ->
           Logger.warning("Page #{page} failed: #{inspect(reason)}")
-          broadcast_error(session_id, %{page: page, message: inspect(reason)})
+          _ = broadcast_error(session_id, %{page: page, message: inspect(reason)})
           acc
 
         _other ->
@@ -255,10 +256,11 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
               "Failed to save notice #{enriched_notice.regulator_id}: #{inspect(reason)}"
             )
 
-            broadcast_error(session_id, %{
-              regulator_id: enriched_notice.regulator_id,
-              message: inspect(reason)
-            })
+            _ =
+              broadcast_error(session_id, %{
+                regulator_id: enriched_notice.regulator_id,
+                message: inspect(reason)
+              })
 
             {created, updated}
         end

@@ -97,18 +97,19 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
         Logger.info("Phase 3 complete: Created #{created_count}, Updated #{updated_count}")
 
         # Broadcast completion
-        broadcast_completed(session_id, %{
-          records_found: length(aggregated_list),
-          records_existing: length(existing_notices),
-          records_created: created_count,
-          records_updated: updated_count
-        })
+        _ =
+          broadcast_completed(session_id, %{
+            records_found: length(aggregated_list),
+            records_existing: length(existing_notices),
+            records_created: created_count,
+            records_updated: updated_count
+          })
 
         {:ok, %{created: created_count, updated: updated_count}}
       rescue
         error ->
           Logger.error("EA notice batch scraping failed: #{inspect(error)}")
-          broadcast_error(session_id, %{message: "Scraping failed: #{inspect(error)}"})
+          _ = broadcast_error(session_id, %{message: "Scraping failed: #{inspect(error)}"})
           {:error, error}
       end
     else
@@ -130,7 +131,7 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
 
       {:error, reason} ->
         Logger.error("Failed to scrape EA notices: #{inspect(reason)}")
-        broadcast_error(session_id, %{message: "Scraping failed: #{inspect(reason)}"})
+        _ = broadcast_error(session_id, %{message: "Scraping failed: #{inspect(reason)}"})
         []
     end
   end
