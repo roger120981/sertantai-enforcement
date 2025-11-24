@@ -50,6 +50,13 @@ defmodule EhsEnforcementWeb.Router do
     plug EhsEnforcementWeb.Plugs.JwtAuth
   end
 
+  # Flexible authentication - supports both JWT and session auth
+  pipeline :api_flexible_authenticated do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug EhsEnforcementWeb.Plugs.FlexibleAuth
+  end
+
   # Health check pipeline - no authentication required
   pipeline :health do
     plug :accepts, ["json"]
@@ -165,11 +172,11 @@ defmodule EhsEnforcementWeb.Router do
     get "/public/dashboard/stats", DashboardController, :stats
   end
 
-  # Authenticated API routes (requires JWT token)
+  # Authenticated API routes (supports both JWT and session auth)
   scope "/api", EhsEnforcementWeb.Api do
-    pipe_through [:api, :api_jwt_authenticated]
+    pipe_through :api_flexible_authenticated
 
-    # Current user endpoint
+    # Current user endpoint - supports both JWT (tenant users) and session (admin users)
     get "/user", CurrentUserController, :show
   end
 
