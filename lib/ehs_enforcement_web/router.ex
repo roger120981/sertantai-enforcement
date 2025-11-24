@@ -11,7 +11,18 @@ defmodule EhsEnforcementWeb.Router do
     plug :fetch_live_flash
     plug :put_root_layout, html: {EhsEnforcementWeb.Layouts, :root}
     plug :protect_from_forgery
-    plug :put_secure_browser_headers
+
+    plug :put_secure_browser_headers, %{
+      "content-security-policy" =>
+        "default-src 'self'; " <>
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " <>
+          "style-src 'self' 'unsafe-inline'; " <>
+          "img-src 'self' data: https:; " <>
+          "font-src 'self' data:; " <>
+          "connect-src 'self' ws: wss:; " <>
+          "frame-ancestors 'none'"
+    }
+
     plug :load_current_user
 
     plug EhsEnforcement.Consent.Plug,
@@ -152,6 +163,14 @@ defmodule EhsEnforcementWeb.Router do
 
     # Public API endpoints
     get "/public/dashboard/stats", DashboardController, :stats
+  end
+
+  # Authenticated API routes (requires JWT token)
+  scope "/api", EhsEnforcementWeb.Api do
+    pipe_through [:api, :api_jwt_authenticated]
+
+    # Current user endpoint
+    get "/user", CurrentUserController, :show
   end
 
   # Unified Data API (outside Api namespace for now)
