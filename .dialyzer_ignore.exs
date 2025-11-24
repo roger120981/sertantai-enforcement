@@ -15,13 +15,7 @@
   # but Dialyzer infers it always returns non-empty list or Page struct
   {"lib/ehs_enforcement/enforcement/resources/offender.ex", :pattern_match},
 
-  # Legacy Airtable integration - AtTables.get_table_id error handling
-  # False positive - the function can return error tuple in some branches
-  {"lib/ehs_enforcement/integrations/airtable/airtable_params.ex", :pattern_match},
-
   # Additional call errors - function contract mismatches in legacy code
-  {"lib/ehs_enforcement/agencies/hse/breaches.ex", :call},
-  {"lib/ehs_enforcement/integrations/airtable/uk_airtable.ex", :call},
   {"lib/ehs_enforcement/legislation/taxa/lat_taxa.ex", :call},
   {"lib/ehs_enforcement/scraping/ea/notice_processor.ex", :call},
 
@@ -47,7 +41,6 @@
   {"lib/ehs_enforcement_web/live/offender_live/show.ex", :pattern_match},
 
   # Unused helper functions - may be used in future or kept for reference
-  {"lib/ehs_enforcement/agencies/hse/breaches.ex", :unused_fun},
   {"lib/ehs_enforcement/scraping/ea/notice_processor.ex", :unused_fun},
 
   # EA notice processor - unknown type from external Ash.Expr
@@ -57,9 +50,6 @@
 
   # Utility module - unknown types from complex map structures
   {"lib/ehs_enforcement/utility.ex", :unknown_type},
-
-  # UK Airtable integration - legacy code with complex types
-  {"lib/ehs_enforcement/integrations/airtable/uk_airtable.ex", :unknown_type},
 
   # Legislation taxa - contract and guard issues in legacy tax-classification code
   {"lib/ehs_enforcement/legislation/taxa/lat_taxa.ex", :invalid_contract},

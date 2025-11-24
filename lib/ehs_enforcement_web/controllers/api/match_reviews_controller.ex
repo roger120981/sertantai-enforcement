@@ -87,9 +87,10 @@ defmodule EhsEnforcementWeb.Api.MatchReviewsController do
 
     with {:ok, review} <- Enforcement.get_review(id, actor: current_user),
          {:ok, updated_review} <-
-           Enforcement.approve_match(review,
-             reviewed_by_id: current_user.id,
-             selected_company_number: company_number
+           Enforcement.approve_match(
+             review,
+             [reviewed_by_id: current_user.id, selected_company_number: company_number],
+             actor: current_user
            ) do
       conn
       |> json(%{
@@ -160,7 +161,7 @@ defmodule EhsEnforcementWeb.Api.MatchReviewsController do
   POST /api/match-reviews/:id/flag
   Body: %{"notes" => "Need to verify company details"}
   """
-  def flag(conn, %{"id" => id} = params) do
+  def flag(conn, %{"id" => id} = _params) do
     current_user = conn.assigns[:current_user]
 
     with {:ok, review} <- Enforcement.get_review(id, actor: current_user),

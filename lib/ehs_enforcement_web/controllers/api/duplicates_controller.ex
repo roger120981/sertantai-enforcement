@@ -78,7 +78,7 @@ defmodule EhsEnforcementWeb.Api.DuplicatesController do
     DuplicateDetector.find_duplicate_notices(current_user)
   end
 
-  defp detect_duplicates("offenders", current_user) do
+  defp detect_duplicates("offenders", _current_user) do
     # Use company number duplicates for now (more reliable than fuzzy name matching)
     case EhsEnforcement.Enforcement.find_duplicate_offenders_by_company_number() do
       {:ok, duplicates} -> {:ok, duplicates}

@@ -545,12 +545,6 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeProcessor do
     nil
   end
 
-  defp build_ea_notice_url(ea_record_id) when is_binary(ea_record_id) do
-    "https://environment.data.gov.uk/public-register/enforcement-action/registration/#{ea_record_id}?__pageState=result-enforcement-action"
-  end
-
-  defp build_ea_notice_url(_), do: nil
-
   defp build_source_metadata(ea_detail_record) do
     %{
       scraped_at: DateTime.utc_now(),
