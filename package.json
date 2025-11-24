@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@shotleybuilder/svelte-table-kit": "^0.1.0"
+  }
+}

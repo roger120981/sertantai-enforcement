@@ -6,7 +6,7 @@ defmodule EhsEnforcementWeb.AuthController do
   use EhsEnforcementWeb, :controller
   use AshAuthentication.Phoenix.Controller
 
-  def success(conn, _activity, user, _token) do
+  def success(conn, _activity, user, token) do
     # Load the display_name calculation safely
     user_with_display_name = Ash.load!(user, [:display_name])
 
@@ -14,12 +14,33 @@ defmodule EhsEnforcementWeb.AuthController do
       Map.get(user_with_display_name, :display_name) || user.name || user.github_login ||
         user.email
 
-    conn
-    |> store_in_session(user)
-    |> assign(:current_user, user)
-    |> put_flash(:info, "Welcome #{display_name}!")
-    |> redirect(to: "/")
+    # Get frontend URL from config (defaults to localhost:5173 for dev)
+    frontend_url = Application.get_env(:ehs_enforcement, :frontend_url, "http://localhost:5173")
+
+    # For frontend/backend split: redirect to frontend with token
+    # For traditional Phoenix: redirect to root
+    if frontend_url do
+      # Extract token string from token struct
+      token_string = extract_token_string(token)
+
+      conn
+      |> store_in_session(user)
+      |> redirect(external: "#{frontend_url}/auth/callback?token=#{token_string}")
+    else
+      # Fallback for traditional Phoenix app (no separate frontend)
+      conn
+      |> store_in_session(user)
+      |> assign(:current_user, user)
+      |> put_flash(:info, "Welcome #{display_name}!")
+      |> redirect(to: "/")
+    end
   end
+
+  # Extract token string from Ash token struct
+  defp extract_token_string(token) when is_binary(token), do: token
+  defp extract_token_string(%{token: token}) when is_binary(token), do: token
+  defp extract_token_string(%{jti: jti}) when is_binary(jti), do: jti
+  defp extract_token_string(_), do: nil
 
   def failure(conn, _activity, reason) do
     # Safely convert error to string

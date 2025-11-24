@@ -133,6 +133,7 @@ EhsEnforcementWeb.AgencyLive.html
 EhsEnforcementWeb.Api.AdminController.html
 EhsEnforcementWeb.Api.AgencyController.html
 EhsEnforcementWeb.Api.CasesController.html
+EhsEnforcementWeb.Api.CurrentUserController.html
 EhsEnforcementWeb.Api.DashboardController.html
 EhsEnforcementWeb.Api.DuplicatesController.html
 EhsEnforcementWeb.Api.MatchReviewsController.html
@@ -187,6 +188,8 @@ EhsEnforcementWeb.UnifiedDataController.html
 EhsEnforcementWeb.html
 Mix.Tasks.DebugAdmin.html
 Mix.Tasks.Diagrams.Generate.html
+Mix.Tasks.Evaluate.AiModels.html
+Mix.Tasks.Evaluate.CreateTestDataset.html
 Mix.Tasks.PopulateOffenderAgencies.html
 Mix.Tasks.ValidateEnv.html
 UK.Act.html
@@ -199,8 +202,8 @@ dist/lato-latin-700-normal-2XVSBPG4.woff2
 dist/lato-latin-ext-400-normal-N27NCBWW.woff2
 dist/lato-latin-ext-700-normal-Q2L5DVMW.woff2
 dist/remixicon-QPNJX265.woff2
-dist/search_data-A94D38B7.js
-dist/sidebar_items-A7D52767.js
+dist/search_data-369ED5AE.js
+dist/sidebar_items-5E8523CC.js
 index.html
 readme.html
 search.html

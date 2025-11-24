@@ -3,6 +3,9 @@ import Config
 # Set the environment
 config :ehs_enforcement, :environment, :dev
 
+# Frontend URL for OAuth redirects (SvelteKit dev server)
+config :ehs_enforcement, :frontend_url, "http://localhost:5173"
+
 # Ollama Configuration (RunPod)
 config :ehs_enforcement, :ollama_url, "https://u3nu19jne57pqq-11434.proxy.runpod.net"
 
