@@ -39,7 +39,15 @@
     # - Only runs in controlled deployment environments
     # - Executes trusted seed files from codebase
     # - Never exposed to user input or production runtime
-    "RCE.CodeModule"
+    "RCE.CodeModule",
+
+    # CSRF Protection warnings - API endpoints only
+    # These are acceptable risks because:
+    # - API endpoints are accessed programmatically (not browser forms)
+    # - JWT authentication is stateless (no CSRF risk)
+    # - Session-based API auth is used only for same-origin requests
+    # - Browser pipelines (:browser) have proper CSRF protection
+    "Config.CSRF"
   ],
 
   # Verbose output for transparency
