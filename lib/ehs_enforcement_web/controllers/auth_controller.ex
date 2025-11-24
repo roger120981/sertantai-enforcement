@@ -14,35 +14,26 @@ defmodule EhsEnforcementWeb.AuthController do
       Map.get(user_with_display_name, :display_name) || user.name || user.github_login ||
         user.email
 
+    # Extract token string from token struct
+    token_string = extract_token_string(token)
+
     # Get frontend URL from config (defaults to localhost:5173 for dev)
     frontend_url = Application.get_env(:ehs_enforcement, :frontend_url, "http://localhost:5173")
 
-    # For frontend/backend split: redirect to frontend with token
-    # For traditional Phoenix: redirect to root
-    if frontend_url do
-      # Extract token string from token struct
-      token_string = extract_token_string(token)
+    cond do
+      # JWT token available: tenant users from sertantai-auth → redirect to frontend
+      token_string && frontend_url ->
+        conn
+        |> store_in_session(user)
+        |> redirect(external: "#{frontend_url}/auth/callback?token=#{token_string}")
 
-      # Build redirect URL with or without token
-      redirect_url =
-        if token_string do
-          # JWT token available (tenant users from sertantai-auth)
-          "#{frontend_url}/auth/callback?token=#{token_string}"
-        else
-          # No JWT token (GitHub OAuth - use session cookies instead)
-          "#{frontend_url}/auth/callback"
-        end
-
-      conn
-      |> store_in_session(user)
-      |> redirect(external: redirect_url)
-    else
-      # Fallback for traditional Phoenix app (no separate frontend)
-      conn
-      |> store_in_session(user)
-      |> assign(:current_user, user)
-      |> put_flash(:info, "Welcome #{display_name}!")
-      |> redirect(to: "/")
+      # No JWT token: admin GitHub OAuth users → stay in backend LiveView app
+      true ->
+        conn
+        |> store_in_session(user)
+        |> assign(:current_user, user)
+        |> put_flash(:info, "Welcome #{display_name}!")
+        |> redirect(to: "/")
     end
   end
 
