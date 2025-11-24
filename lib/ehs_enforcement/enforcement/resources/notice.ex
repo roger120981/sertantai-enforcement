@@ -71,7 +71,6 @@ defmodule EhsEnforcement.Enforcement.Notice do
   attributes do
     uuid_primary_key(:id)
 
-    attribute(:airtable_id, :string)
     attribute(:regulator_id, :string)
     attribute(:regulator_ref_number, :string)
     attribute(:notice_date, :date)
@@ -156,7 +155,6 @@ defmodule EhsEnforcement.Enforcement.Notice do
       primary?(true)
 
       accept([
-        :airtable_id,
         :regulator_id,
         :regulator_ref_number,
         :notice_date,
@@ -267,7 +265,6 @@ defmodule EhsEnforcement.Enforcement.Notice do
       primary?(true)
 
       accept([
-        :airtable_id,
         :regulator_id,
         :regulator_ref_number,
         :notice_date,
