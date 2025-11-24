@@ -22,6 +22,7 @@
           </div>
 
           <div class="flex space-x-3">
+            <%!-- Commented out: /admin route removed during Svelte migration
             <!-- Back to Admin Button (Admin Users Only) -->
             <%= if assigns[:current_user] && assigns.current_user.is_admin do %>
               <.link
@@ -32,6 +33,7 @@
                 <.icon name="hero-cog-6-tooth" class="h-4 w-4 mr-2" /> Admin
               </.link>
             <% end %>
+            --%>
             
 <!-- Back to Dashboard Button -->
             <.link

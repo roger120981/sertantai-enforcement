@@ -8,7 +8,8 @@ defmodule EhsEnforcementWeb.PageController do
   end
 
   def redirect_to_cases(conn, _params) do
-    # Redirect /admin/cases to the main cases page since we removed the separate admin index
-    redirect(conn, to: ~p"/cases")
+    # Updated: /cases route removed during Svelte migration
+    # Redirect to home page instead
+    redirect(conn, to: ~p"/")
   end
 end

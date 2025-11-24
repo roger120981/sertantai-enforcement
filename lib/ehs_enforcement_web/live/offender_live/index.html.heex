@@ -23,6 +23,7 @@
 
           <div class="flex space-x-3">
             <!-- Back to Admin Button (Admin Users Only) -->
+            <%!-- Commented out: /admin route removed during Svelte migration
             <%= if assigns[:current_user] && assigns.current_user.is_admin do %>
               <.link
                 navigate={~p"/admin"}
@@ -32,6 +33,7 @@
                 <.icon name="hero-cog-6-tooth" class="h-4 w-4 mr-2" /> Admin
               </.link>
             <% end %>
+            --%>
             
 <!-- Back to Dashboard Button -->
             <.link
@@ -293,6 +295,7 @@
                               </.link>
 
                               <%= if assigns[:current_user] && assigns.current_user.is_admin do %>
+                                <%!-- Commented out: /admin/offenders/:id/edit route removed during Svelte migration
                                 <.link
                                   navigate={~p"/admin/offenders/#{offender.id}/edit"}
                                   class="text-green-600 hover:text-green-900"
@@ -300,6 +303,7 @@
                                 >
                                   <.icon name="hero-pencil" class="h-4 w-4" />
                                 </.link>
+                                --%>
                                 <button
                                   type="button"
                                   phx-click="delete_offender"

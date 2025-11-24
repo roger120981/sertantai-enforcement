@@ -312,6 +312,7 @@
                                   <% end %>
                                 </div>
 
+                                <%!-- Commented out: /cases/:id route removed during Svelte migration
                                 <.link
                                   navigate={~p"/cases/#{case.id}"}
                                   class="mt-2 block"
@@ -320,6 +321,10 @@
                                     Case {case.regulator_id}
                                   </h4>
                                 </.link>
+                                --%>
+                                <h4 class="text-sm font-medium text-gray-900 mt-2">
+                                  Case {case.regulator_id}
+                                </h4>
 
                                 <%= if case.offender do %>
                                   <p class="mt-1 text-sm text-gray-500">
@@ -334,6 +339,7 @@
                                 <% end %>
                               </div>
 
+                              <%!-- Commented out: /cases/:id route removed during Svelte migration
                               <div class="flex items-center space-x-2">
                                 <.link
                                   navigate={~p"/cases/#{case.id}"}
@@ -342,6 +348,7 @@
                                   View
                                 </.link>
                               </div>
+                              --%>
                             </div>
                           </li>
                         <% end %>
@@ -407,6 +414,7 @@
                                   <% end %>
                                 </div>
 
+                                <%!-- Commented out: /notices/:id route removed during Svelte migration
                                 <.link
                                   navigate={~p"/notices/#{notice.id}"}
                                   class="mt-2 block"
@@ -415,6 +423,10 @@
                                     Notice {notice.regulator_id}
                                   </h4>
                                 </.link>
+                                --%>
+                                <h4 class="text-sm font-medium text-gray-900 mt-2">
+                                  Notice {notice.regulator_id}
+                                </h4>
 
                                 <%= if notice.offender do %>
                                   <p class="mt-1 text-sm text-gray-500">
@@ -429,6 +441,7 @@
                                 <% end %>
                               </div>
 
+                              <%!-- Commented out: /notices/:id route removed during Svelte migration
                               <div class="flex items-center space-x-2">
                                 <.link
                                   navigate={~p"/notices/#{notice.id}"}
@@ -437,6 +450,7 @@
                                   View
                                 </.link>
                               </div>
+                              --%>
                             </div>
                           </li>
                         <% end %>
