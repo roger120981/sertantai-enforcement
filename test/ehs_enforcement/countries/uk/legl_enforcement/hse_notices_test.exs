@@ -1,24 +1,15 @@
 defmodule EhsEnforcement.Agencies.Hse.NoticesTest do
   # mix test test/ehs_enforcement/countries/uk/legl_enforcement/hse_notices_test.exs
   use ExUnit.Case, async: true
-  alias EhsEnforcement.Agencies.Hse.{Breaches, Notices}
 
-  setup do
-    # Ensure modules are loaded before testing
-    Code.ensure_loaded(Notices)
-    Code.ensure_loaded(Breaches)
-    :ok
-  end
+  # Note: Breaches and Notices modules removed in Airtable cleanup (commit c9a6de7)
+  # All tests in this file are skipped with @tag :skip and @tag :legacy_airtable
+  # These tests may be restored when non-Airtable notice functionality is re-implemented
 
-  setup_all do
-    {:ok,
-     notices:
-       EhsEnforcement.Utility.read_json_records(
-         Path.expand("lib/ehs_enforcement/agencies/hse/hse_notices.json")
-       )}
-  end
-
+  @tag :skip
+  @tag :legacy_airtable
   test "enum_breaches/1", context do
+    # Skipped: Breaches module removed in Airtable cleanup (commit c9a6de7)
     %{notices: notices} = context
 
     notices
@@ -98,7 +89,10 @@ defmodule EhsEnforcement.Agencies.Hse.NoticesTest do
     }
   ]
 
+  @tag :skip
+  @tag :legacy_airtable
   test "match_title/2" do
+    # Skipped: Breaches module removed in Airtable cleanup (commit c9a6de7)
     result = Breaches.match_title(@records, "Construction (Design and Management) Regulations")
 
     assert result == {
@@ -110,7 +104,10 @@ defmodule EhsEnforcement.Agencies.Hse.NoticesTest do
            }
   end
 
+  @tag :skip
+  @tag :legacy_airtable
   test "api_get_hse_notices/1" do
+    # Skipped: Notices module functionality removed in Airtable cleanup (commit c9a6de7)
     # Test that the api function exists and accepts options list
     # This is an integration test function that makes actual API calls
     # We'll just test that it doesn't crash with test options
