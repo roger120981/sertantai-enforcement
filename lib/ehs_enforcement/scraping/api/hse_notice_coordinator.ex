@@ -17,7 +17,6 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
 
   alias EhsEnforcement.Scraping.Hse.{NoticeScraper, NoticeProcessor}
   alias EhsEnforcement.Enforcement.Notice
-  alias EhsEnforcement.Scraping.ScrapeSession
   alias Phoenix.PubSub
 
   @doc """

@@ -37,9 +37,6 @@
   # Component timestamp display - placeholder function
   {"lib/ehs_enforcement_web/components/reports_action_card.ex", :pattern_match},
 
-  # LiveView template - HEEX templates generate code that Dialyzer struggles with
-  {"lib/ehs_enforcement_web/live/case_live/show.html.heex", :no_return},
-
   # LiveView error boundary callback - Phoenix LiveView callback type complexity
   {"lib/ehs_enforcement_web/live/error_boundary.ex", :callback_type_mismatch},
 
@@ -68,10 +65,6 @@
   {"lib/ehs_enforcement/legislation/taxa/lat_taxa.ex", :invalid_contract},
   {"lib/ehs_enforcement/legislation/taxa/lat_taxa.ex", :exact_eq},
 
-  # DuplicatesLive - Task.shutdown return value intentionally ignored when canceling tasks
-  {"lib/ehs_enforcement_web/live/admin/duplicates_live.ex", :unmatched_return},
-
   # CSV export functions - Enum.map_join return type inference issue
-  {"lib/ehs_enforcement_web/live/case_live/show.ex", :unmatched_return},
   {"lib/ehs_enforcement_web/live/legislation_live/show.ex", :unmatched_return}
 ]

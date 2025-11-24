@@ -328,17 +328,9 @@ defmodule EhsEnforcementWeb.ReportsLive.Index do
     {:error, "CSV export has been moved to the Svelte frontend"}
   end
 
-  defp export_to_excel(filters) do
-    # Placeholder for Excel export
-    # In a real implementation, this would use a library like Elixlsx
-    case export_to_csv(filters) do
-      {:ok, result} ->
-        excel_filename = String.replace(result.filename, ".csv", ".xlsx")
-        {:ok, %{result | filename: excel_filename, format: "Excel"}}
-
-      error ->
-        error
-    end
+  defp export_to_excel(_filters) do
+    # Excel export functionality moved to Svelte frontend
+    {:error, "Excel export has been moved to the Svelte frontend"}
   end
 
   defp export_to_json(filters) do

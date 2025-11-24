@@ -74,13 +74,6 @@ defmodule EhsEnforcementWeb.NLQueryController do
               raw: raw,
               parse_error: "Could not extract valid JSON"
             })
-
-          {:error, reason} ->
-            json(conn, %{
-              success: false,
-              prompt_version: prompt_version,
-              error: inspect(reason)
-            })
         end
 
       {:error, reason} ->

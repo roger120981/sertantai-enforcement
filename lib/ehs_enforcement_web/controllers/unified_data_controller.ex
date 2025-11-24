@@ -68,7 +68,6 @@ defmodule EhsEnforcementWeb.UnifiedDataController do
   use EhsEnforcementWeb, :controller
 
   require Ash.Query
-  import Ash.Expr
 
   @doc """
   GET /api/unified-data
@@ -149,8 +148,8 @@ defmodule EhsEnforcementWeb.UnifiedDataController do
     query = Ash.Query.new(EhsEnforcement.Enforcement.Case)
 
     query
-    # Load agency relationship
-    |> Ash.Query.load(:agency)
+    # Load agency and offender relationships
+    |> Ash.Query.load([:agency, :offender])
     |> apply_date_filters(date_from, date_to, :offence_action_date)
     |> apply_agency_filter(agency_id)
   end
@@ -162,8 +161,8 @@ defmodule EhsEnforcementWeb.UnifiedDataController do
     query = Ash.Query.new(EhsEnforcement.Enforcement.Notice)
 
     query
-    # Load agency relationship
-    |> Ash.Query.load(:agency)
+    # Load agency and offender relationships
+    |> Ash.Query.load([:agency, :offender])
     |> apply_date_filters(date_from, date_to, :offence_action_date)
     |> apply_agency_filter(agency_id)
   end

@@ -220,7 +220,7 @@ defmodule EhsEnforcementWeb.Api.DashboardController do
 
   defp format_fine_amount(nil), do: "£0"
   defp format_fine_amount(0), do: "£0"
-  defp format_fine_amount(0.0), do: "£0"
+  defp format_fine_amount(amount) when amount in [+0.0, -0.0], do: "£0"
 
   defp format_fine_amount(amount) when is_binary(amount) do
     case Decimal.parse(amount) do
