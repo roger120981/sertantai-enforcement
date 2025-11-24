@@ -8,6 +8,18 @@ defmodule EhsEnforcementWeb.LegislationLive.Index do
   @default_page_size 20
   @max_page_size 100
 
+  # Security: Whitelist allowed sort fields to prevent DOS via String.to_atom
+  @allowed_sort_fields ~w(legislation_title legislation_year legislation_type)
+
+  # Security: Whitelist allowed filter keys to prevent DOS via String.to_atom
+  @allowed_filter_keys ~w(legislation_type agency year_from year_to search)
+
+  # Security: Whitelist allowed agency codes to prevent DOS via String.to_atom
+  @allowed_agency_codes ~w(hse ea sepa nrw)
+
+  # Security: Whitelist allowed legislation types to prevent DOS via String.to_atom
+  @allowed_legislation_types ~w(act regulation statutory_instrument order rules directive)
+
   @impl true
   def mount(_params, _session, socket) do
     :ok = Phoenix.PubSub.subscribe(EhsEnforcement.PubSub, "legislation_updates")
@@ -117,22 +129,28 @@ defmodule EhsEnforcementWeb.LegislationLive.Index do
 
   @impl true
   def handle_event("sort", %{"field" => field}, socket) do
-    sort_by = String.to_atom(field)
-    # Toggle sort direction if same field, otherwise default to desc
-    sort_dir =
-      if socket.assigns.sort_by == sort_by do
-        if socket.assigns.sort_dir == :desc, do: :asc, else: :desc
-      else
-        :desc
-      end
+    # Security: Validate field against whitelist before converting to atom
+    if field in @allowed_sort_fields do
+      sort_by = String.to_existing_atom(field)
+      # Toggle sort direction if same field, otherwise default to desc
+      sort_dir =
+        if socket.assigns.sort_by == sort_by do
+          if socket.assigns.sort_dir == :desc, do: :asc, else: :desc
+        else
+          :desc
+        end
 
-    {:noreply,
-     socket
-     |> assign(:sort_by, sort_by)
-     |> assign(:sort_dir, sort_dir)
-     |> assign(:page, 1)
-     |> assign(:sort_requested, true)
-     |> async_load_legislation()}
+      {:noreply,
+       socket
+       |> assign(:sort_by, sort_by)
+       |> assign(:sort_dir, sort_dir)
+       |> assign(:page, 1)
+       |> assign(:sort_requested, true)
+       |> async_load_legislation()}
+    else
+      # Reject invalid sort field
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -491,8 +509,24 @@ defmodule EhsEnforcementWeb.LegislationLive.Index do
   defp add_filter_if_present(acc, filters, key) do
     case filters[key] do
       value when is_binary(value) and value != "" ->
-        atom_value = if key == :legislation_type, do: String.to_atom(value), else: value
-        Map.put(acc, key, atom_value)
+        atom_value =
+          if key == :legislation_type do
+            # Security: Validate legislation type before converting to atom
+            if value in @allowed_legislation_types do
+              String.to_existing_atom(value)
+            else
+              # Invalid type, skip this filter
+              nil
+            end
+          else
+            value
+          end
+
+        if atom_value do
+          Map.put(acc, key, atom_value)
+        else
+          acc
+        end
 
       _ ->
         acc
@@ -502,8 +536,14 @@ defmodule EhsEnforcementWeb.LegislationLive.Index do
   defp add_agency_filter(acc, filters) do
     case filters[:agency] do
       agency when is_binary(agency) and agency != "" ->
-        agency_atom = String.to_atom(agency)
-        Map.put(acc, :agency, agency_atom)
+        # Security: Validate agency code before converting to atom
+        if agency in @allowed_agency_codes do
+          agency_atom = String.to_existing_atom(agency)
+          Map.put(acc, :agency, agency_atom)
+        else
+          # Invalid agency code, skip this filter
+          acc
+        end
 
       _ ->
         acc
@@ -578,12 +618,18 @@ defmodule EhsEnforcementWeb.LegislationLive.Index do
     filter_params
     |> Enum.reduce(%{}, fn
       {key, value}, acc when is_binary(value) ->
-        atom_key = String.to_atom(key)
-        cleaned_value = String.trim(value)
+        # Security: Validate filter key before converting to atom
+        if key in @allowed_filter_keys do
+          atom_key = String.to_existing_atom(key)
+          cleaned_value = String.trim(value)
 
-        if cleaned_value != "" do
-          Map.put(acc, atom_key, cleaned_value)
+          if cleaned_value != "" do
+            Map.put(acc, atom_key, cleaned_value)
+          else
+            acc
+          end
         else
+          # Invalid filter key, skip it
           acc
         end
 
@@ -610,13 +656,21 @@ defmodule EhsEnforcementWeb.LegislationLive.Index do
   end
 
   defp get_sort_icon(assigns, field) do
-    if assigns.sort_by == String.to_atom(field) do
-      if assigns.sort_dir == :desc do
-        "↓"
+    # Security: Validate field before converting to atom
+    if field in @allowed_sort_fields do
+      field_atom = String.to_existing_atom(field)
+
+      if assigns.sort_by == field_atom do
+        if assigns.sort_dir == :desc do
+          "↓"
+        else
+          "↑"
+        end
       else
-        "↑"
+        ""
       end
     else
+      # Invalid field, no icon
       ""
     end
   end

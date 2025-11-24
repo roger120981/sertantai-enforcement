@@ -7,6 +7,12 @@ defmodule EhsEnforcementWeb.OffenderLive.Index do
 
   @per_page 20
 
+  # Security: Whitelist allowed sort fields to prevent DOS via String.to_atom
+  @allowed_sort_fields ~w(name total_fines total_cases total_notices first_seen_date last_seen_date)
+
+  # Security: Whitelist allowed sort orders to prevent DOS via String.to_atom
+  @allowed_sort_orders ~w(asc desc)
+
   @impl true
   def mount(_params, _session, socket) do
     # Subscribe to real-time updates
@@ -527,8 +533,30 @@ defmodule EhsEnforcementWeb.OffenderLive.Index do
   end
 
   defp build_sort_options(sort_by, sort_order) do
-    sort_by_atom = if is_binary(sort_by), do: String.to_atom(sort_by), else: sort_by
-    sort_order_atom = if is_binary(sort_order), do: String.to_atom(sort_order), else: sort_order
+    # Security: Validate before converting to atom to prevent DOS attacks
+    sort_by_atom =
+      if is_binary(sort_by) do
+        if sort_by in @allowed_sort_fields do
+          String.to_existing_atom(sort_by)
+        else
+          # Invalid field, use default
+          :total_fines
+        end
+      else
+        sort_by
+      end
+
+    sort_order_atom =
+      if is_binary(sort_order) do
+        if sort_order in @allowed_sort_orders do
+          String.to_existing_atom(sort_order)
+        else
+          # Invalid order, use default
+          :desc
+        end
+      else
+        sort_order
+      end
 
     case {sort_by_atom, sort_order_atom} do
       {field, dir}

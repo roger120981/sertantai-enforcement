@@ -19,6 +19,9 @@ defmodule EhsEnforcement.Enforcement do
   # Log queries taking longer than 1000ms
   @slow_query_threshold 1000
 
+  # Security: Whitelist allowed business types to prevent DOS via String.to_atom
+  @allowed_business_types ~w(limited_company individual partnership plc other)
+
   resources do
     resource EhsEnforcement.Enforcement.Agency do
       define(:list_agencies, action: :read)
@@ -658,9 +661,25 @@ defmodule EhsEnforcement.Enforcement do
       Ash.Query.filter(q, local_authority == ^value)
     end)
     |> apply_if_present(business_type_filter, fn q, value ->
-      # Convert string to atom if needed
-      atom_value = if is_binary(value), do: String.to_atom(value), else: value
-      Ash.Query.filter(q, business_type == ^atom_value)
+      # Security: Validate business_type before converting to atom
+      atom_value =
+        if is_binary(value) do
+          if value in @allowed_business_types do
+            String.to_existing_atom(value)
+          else
+            # Invalid business type, skip filter by returning nil
+            nil
+          end
+        else
+          value
+        end
+
+      # Only apply filter if we have a valid atom_value
+      if atom_value do
+        Ash.Query.filter(q, business_type == ^atom_value)
+      else
+        q
+      end
     end)
     |> apply_repeat_offender_filter(repeat_only_filter)
     |> apply_offender_search_filter(search_pattern)
