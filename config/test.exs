@@ -57,9 +57,6 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
-# Configure mock Airtable client for testing
-config :ehs_enforcement, :airtable_client, EhsEnforcement.Test.MockAirtableClient
-
 # Configure JWT signing secret for AshAuthentication tokens
 config :ehs_enforcement,
        :token_signing_secret,
