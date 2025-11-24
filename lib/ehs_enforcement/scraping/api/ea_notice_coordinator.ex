@@ -45,47 +45,52 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
 
       try do
         # PHASE 1: Scrape date range to build aggregated list
-        broadcast_progress(session_id, %{
-          phase: "scraping_pages",
-          current_page: 1,
-          total_pages: 1
-        })
+        _ =
+          broadcast_progress(session_id, %{
+            phase: "scraping_pages",
+            current_page: 1,
+            total_pages: 1
+          })
 
         aggregated_list = scrape_date_range(session_id, from_date, to_date)
 
-        broadcast_progress(session_id, %{
-          phase: "scraping_pages",
-          current_page: 1,
-          pages_scraped: 1
-        })
+        _ =
+          broadcast_progress(session_id, %{
+            phase: "scraping_pages",
+            current_page: 1,
+            pages_scraped: 1
+          })
 
         Logger.info("Phase 1 complete: Aggregated #{length(aggregated_list)} records")
 
         # PHASE 2: Filter against existing DB records
-        broadcast_progress(session_id, %{
-          phase: "filtering",
-          records_found: length(aggregated_list)
-        })
+        _ =
+          broadcast_progress(session_id, %{
+            phase: "filtering",
+            records_found: length(aggregated_list)
+          })
 
         {new_notices, updated_notices, existing_notices} = filter_against_db(aggregated_list)
 
         to_process = new_notices ++ updated_notices
 
-        broadcast_progress(session_id, %{
-          phase: "filtering",
-          records_to_process: length(to_process),
-          records_existing: length(existing_notices)
-        })
+        _ =
+          broadcast_progress(session_id, %{
+            phase: "filtering",
+            records_to_process: length(to_process),
+            records_existing: length(existing_notices)
+          })
 
         Logger.info(
           "Phase 2 complete: #{length(new_notices)} new, #{length(updated_notices)} updated, #{length(existing_notices)} existing"
         )
 
         # PHASE 3: Process and save each record immediately
-        broadcast_progress(session_id, %{
-          phase: "processing_records",
-          records_to_process: length(to_process)
-        })
+        _ =
+          broadcast_progress(session_id, %{
+            phase: "processing_records",
+            records_to_process: length(to_process)
+          })
 
         {created_count, updated_count} = process_and_save_notices(session_id, to_process, actor)
 
@@ -205,15 +210,16 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
                 new_created = acc_created + 1
 
                 # Broadcast real-time progress update
-                broadcast_progress(session_id, %{
-                  phase: "processing_records",
-                  records_processed: index + 1,
-                  records_created: new_created,
-                  records_updated: acc_updated
-                })
+                _ =
+                  broadcast_progress(session_id, %{
+                    phase: "processing_records",
+                    records_processed: index + 1,
+                    records_created: new_created,
+                    records_updated: acc_updated
+                  })
 
                 # Broadcast individual record
-                broadcast_record_processed(session_id, processed)
+                _ = broadcast_record_processed(session_id, processed)
 
                 {:created, new_created, acc_updated}
 
@@ -222,15 +228,16 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
                 new_updated = acc_updated + 1
 
                 # Broadcast real-time progress update
-                broadcast_progress(session_id, %{
-                  phase: "processing_records",
-                  records_processed: index + 1,
-                  records_created: acc_created,
-                  records_updated: new_updated
-                })
+                _ =
+                  broadcast_progress(session_id, %{
+                    phase: "processing_records",
+                    records_processed: index + 1,
+                    records_created: acc_created,
+                    records_updated: new_updated
+                  })
 
                 # Broadcast individual record
-                broadcast_record_processed(session_id, processed)
+                _ = broadcast_record_processed(session_id, processed)
 
                 {:updated, acc_created, new_updated}
 
@@ -238,12 +245,13 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
                 Logger.debug("EA NoticeCoordinator: Notice already exists #{notice.regulator_id}")
 
                 # Still broadcast progress
-                broadcast_progress(session_id, %{
-                  phase: "processing_records",
-                  records_processed: index + 1,
-                  records_created: acc_created,
-                  records_updated: acc_updated
-                })
+                _ =
+                  broadcast_progress(session_id, %{
+                    phase: "processing_records",
+                    records_processed: index + 1,
+                    records_created: acc_created,
+                    records_updated: acc_updated
+                  })
 
                 {:existing, acc_created, acc_updated}
 
@@ -253,12 +261,13 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
                 )
 
                 # Still broadcast progress
-                broadcast_progress(session_id, %{
-                  phase: "processing_records",
-                  records_processed: index + 1,
-                  records_created: acc_created,
-                  records_updated: acc_updated
-                })
+                _ =
+                  broadcast_progress(session_id, %{
+                    phase: "processing_records",
+                    records_processed: index + 1,
+                    records_created: acc_created,
+                    records_updated: acc_updated
+                  })
 
                 {:error, acc_created, acc_updated}
             end
@@ -269,12 +278,13 @@ defmodule EhsEnforcement.Scraping.Api.EaNoticeCoordinator do
               )
 
               # Broadcast progress even on failure
-              broadcast_progress(session_id, %{
-                phase: "processing_records",
-                records_processed: index + 1,
-                records_created: acc_created,
-                records_updated: acc_updated
-              })
+              _ =
+                broadcast_progress(session_id, %{
+                  phase: "processing_records",
+                  records_processed: index + 1,
+                  records_created: acc_created,
+                  records_updated: acc_updated
+                })
 
               {:error, acc_created, acc_updated}
           end

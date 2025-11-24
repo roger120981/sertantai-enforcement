@@ -42,49 +42,54 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
 
     try do
       # PHASE 1: Scrape all pages to build aggregated list
-      broadcast_progress(session_id, %{
-        phase: "scraping_pages",
-        total_pages: max_pages - start_page + 1
-      })
+      _ =
+        broadcast_progress(session_id, %{
+          phase: "scraping_pages",
+          total_pages: max_pages - start_page + 1
+        })
 
       aggregated_list = scrape_all_pages(session_id, start_page, max_pages, country)
 
       Logger.info("Phase 1 complete: Aggregated #{length(aggregated_list)} records")
 
       # PHASE 2: Filter against existing DB records
-      broadcast_progress(session_id, %{
-        phase: "filtering",
-        records_found: length(aggregated_list)
-      })
+      _ =
+        broadcast_progress(session_id, %{
+          phase: "filtering",
+          records_found: length(aggregated_list)
+        })
 
       {new_notices, updated_notices, existing_notices} = filter_against_db(aggregated_list)
 
       to_process = new_notices ++ updated_notices
 
-      broadcast_progress(session_id, %{
-        phase: "filtering",
-        records_to_process: length(to_process),
-        records_existing: length(existing_notices)
-      })
+      _ =
+        broadcast_progress(session_id, %{
+          phase: "filtering",
+          records_to_process: length(to_process),
+          records_existing: length(existing_notices)
+        })
 
       Logger.info(
         "Phase 2 complete: #{length(new_notices)} new, #{length(updated_notices)} updated, #{length(existing_notices)} existing"
       )
 
       # PHASE 3: Process only new/changed records
-      broadcast_progress(session_id, %{
-        phase: "processing_records",
-        records_to_process: length(to_process)
-      })
+      _ =
+        broadcast_progress(session_id, %{
+          phase: "processing_records",
+          records_to_process: length(to_process)
+        })
 
       processed_notices = process_notices(session_id, to_process)
 
       Logger.info("Phase 3 complete: Processed #{length(processed_notices)} notices")
 
       # PHASE 4: Save to database
-      broadcast_progress(session_id, %{
-        phase: "saving"
-      })
+      _ =
+        broadcast_progress(session_id, %{
+          phase: "saving"
+        })
 
       {created_count, updated_count} = save_notices(session_id, processed_notices, actor)
 
@@ -114,11 +119,12 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
   defp scrape_all_pages(session_id, start_page, max_pages, country) do
     start_page..max_pages
     |> Enum.reduce([], fn page, acc ->
-      broadcast_progress(session_id, %{
-        phase: "scraping_pages",
-        current_page: page,
-        pages_scraped: page - start_page + 1
-      })
+      _ =
+        broadcast_progress(session_id, %{
+          phase: "scraping_pages",
+          current_page: page,
+          pages_scraped: page - start_page + 1
+        })
 
       case NoticeScraper.get_hse_notices(page_number: page, country: country) do
         notices when is_list(notices) ->
@@ -194,14 +200,15 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
       enriched = enrich_notice(notice)
 
       # Broadcast progress
-      broadcast_progress(session_id, %{
-        phase: "processing_records",
-        records_processed: index + 1,
-        records_enriched: index + 1
-      })
+      _ =
+        broadcast_progress(session_id, %{
+          phase: "processing_records",
+          records_processed: index + 1,
+          records_enriched: index + 1
+        })
 
       # Broadcast individual record
-      broadcast_record_processed(session_id, enriched)
+      _ = broadcast_record_processed(session_id, enriched)
 
       enriched
     end)
@@ -257,11 +264,12 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
         end
       end)
 
-    broadcast_progress(session_id, %{
-      phase: "saving",
-      records_created: elem(results, 0),
-      records_updated: elem(results, 1)
-    })
+    _ =
+      broadcast_progress(session_id, %{
+        phase: "saving",
+        records_created: elem(results, 0),
+        records_updated: elem(results, 1)
+      })
 
     results
   end
