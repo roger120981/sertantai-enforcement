@@ -102,11 +102,12 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
     case find_and_stop_session(session_id) do
       {:ok, _session} ->
         # Broadcast stop signal via PubSub
-        Phoenix.PubSub.broadcast(
-          EhsEnforcement.PubSub,
-          "scrape_session:#{session_id}",
-          {:stopped, %{}}
-        )
+        _ =
+          Phoenix.PubSub.broadcast(
+            EhsEnforcement.PubSub,
+            "scrape_session:#{session_id}",
+            {:stopped, %{}}
+          )
 
         conn
         |> json(%{
@@ -323,67 +324,74 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
 
   defp start_background_scraping(session, params) do
     # Start async task for scraping
-    Task.start(fn ->
-      try do
-        # Update session to running
-        session
-        |> Ash.Changeset.for_update(:update, %{status: :running})
-        |> Ash.update()
+    _ =
+      Task.start(fn ->
+        try do
+          # Update session to running
+          _ =
+            session
+            |> Ash.Changeset.for_update(:update, %{status: :running})
+            |> Ash.update()
 
-        # Call coordinator based on agency + database
-        result =
-          case {params.agency, params.database} do
-            {:hse, "notices"} ->
-              HseNoticeCoordinator.scrape_batch(
-                session.session_id,
-                params.start_page,
-                params.max_pages,
-                params.country,
-                nil
+          # Call coordinator based on agency + database
+          result =
+            case {params.agency, params.database} do
+              {:hse, "notices"} ->
+                HseNoticeCoordinator.scrape_batch(
+                  session.session_id,
+                  params.start_page,
+                  params.max_pages,
+                  params.country,
+                  nil
+                )
+
+              {:environment_agency, "notices"} ->
+                alias EhsEnforcement.Scraping.Api.EaNoticeCoordinator
+
+                EaNoticeCoordinator.scrape_batch(
+                  session.session_id,
+                  params.from_date,
+                  params.to_date,
+                  nil
+                )
+
+              # Future: Add other combinations (HSE convictions/appeals, EA cases)
+              _other ->
+                {:error, :not_implemented}
+            end
+
+          # Handle result
+          case result do
+            {:ok, %{created: created, updated: updated}} ->
+              _ =
+                session
+                |> Ash.Changeset.for_update(:update, %{
+                  status: :completed,
+                  cases_created: created,
+                  cases_updated: updated
+                })
+                |> Ash.update()
+
+            {:error, reason} ->
+              Logger.error(
+                "Scraping failed for session #{session.session_id}: #{inspect(reason)}"
               )
 
-            {:environment_agency, "notices"} ->
-              alias EhsEnforcement.Scraping.Api.EaNoticeCoordinator
-
-              EaNoticeCoordinator.scrape_batch(
-                session.session_id,
-                params.from_date,
-                params.to_date,
-                nil
-              )
-
-            # Future: Add other combinations (HSE convictions/appeals, EA cases)
-            _other ->
-              {:error, :not_implemented}
+              _ =
+                session
+                |> Ash.Changeset.for_update(:update, %{status: :failed})
+                |> Ash.update()
           end
+        rescue
+          error ->
+            Logger.error("Scraping crashed for session #{session.session_id}: #{inspect(error)}")
 
-        # Handle result
-        case result do
-          {:ok, %{created: created, updated: updated}} ->
-            session
-            |> Ash.Changeset.for_update(:update, %{
-              status: :completed,
-              cases_created: created,
-              cases_updated: updated
-            })
-            |> Ash.update()
-
-          {:error, reason} ->
-            Logger.error("Scraping failed for session #{session.session_id}: #{inspect(reason)}")
-
-            session
-            |> Ash.Changeset.for_update(:update, %{status: :failed})
-            |> Ash.update()
+            _ =
+              session
+              |> Ash.Changeset.for_update(:update, %{status: :failed})
+              |> Ash.update()
         end
-      rescue
-        error ->
-          Logger.error("Scraping crashed for session #{session.session_id}: #{inspect(error)}")
-
-          session
-          |> Ash.Changeset.for_update(:update, %{status: :failed})
-          |> Ash.update()
-      end
-    end)
+      end)
 
     :ok
   end
