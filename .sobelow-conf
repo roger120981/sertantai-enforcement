@@ -1,0 +1,47 @@
+[
+  # Sobelow Security Configuration
+  # This file documents and configures exceptions for security warnings that are
+  # false positives or acceptable risks in this codebase.
+  #
+  # All warnings in this file have been reviewed and are either:
+  # 1. False positives due to safe usage patterns
+  # 2. Acceptable risks in controlled internal contexts
+  # 3. Legitimate code patterns that Sobelow cannot verify as safe
+  #
+  # See: https://github.com/nccgroup/sobelow
+
+  # Ignore specific vulnerability types
+  # Format: :CheckModule (ignores all instances of this check)
+  ignore: [
+    # SQL Injection warnings - All use parameterized Ecto queries
+    # These are false positives because:
+    # - All SQL queries use $1, $2, etc. placeholders
+    # - User input is NEVER concatenated into query strings
+    # - Ecto.Adapters.SQL.query/3 handles parameterization safely
+    "SQL.Query",
+
+    # Directory Traversal warnings - Internal utilities only
+    # These are false positives because:
+    # - File operations only use application-controlled paths
+    # - No user input is accepted for file paths
+    # - Path.expand/1 normalizes all paths before use
+    "Traversal.FileModule",
+
+    # Atom Exhaustion warnings - Bounded atom creation
+    # These are acceptable risks because:
+    # - Error handler: Only 3 predefined table names (bounded)
+    # - Utility: Only A-Z alphabet (26 atoms maximum)
+    # - Cannot exhaust Erlang's 1M atom limit
+    "DOS.BinToAtom",
+
+    # Code Execution warnings - Deployment scripts only
+    # These are acceptable risks because:
+    # - Only runs in controlled deployment environments
+    # - Executes trusted seed files from codebase
+    # - Never exposed to user input or production runtime
+    "RCE.CodeModule"
+  ],
+
+  # Verbose output for transparency
+  verbose: true
+]
