@@ -23,9 +23,19 @@ defmodule EhsEnforcementWeb.AuthController do
       # Extract token string from token struct
       token_string = extract_token_string(token)
 
+      # Build redirect URL with or without token
+      redirect_url =
+        if token_string do
+          # JWT token available (tenant users from sertantai-auth)
+          "#{frontend_url}/auth/callback?token=#{token_string}"
+        else
+          # No JWT token (GitHub OAuth - use session cookies instead)
+          "#{frontend_url}/auth/callback"
+        end
+
       conn
       |> store_in_session(user)
-      |> redirect(external: "#{frontend_url}/auth/callback?token=#{token_string}")
+      |> redirect(external: redirect_url)
     else
       # Fallback for traditional Phoenix app (no separate frontend)
       conn

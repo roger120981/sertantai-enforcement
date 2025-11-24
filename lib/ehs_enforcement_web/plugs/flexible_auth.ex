@@ -70,22 +70,32 @@ defmodule EhsEnforcementWeb.Plugs.FlexibleAuth do
 
   # Try session-based authentication (GitHub OAuth)
   defp try_session_auth(conn) do
+    # Debug: Log session contents
+    session = Plug.Conn.get_session(conn)
+    Logger.debug("Session auth: session keys = #{inspect(Map.keys(session))}")
+    Logger.debug("Session auth: has user? = #{inspect(Map.has_key?(session, "user"))}")
+
     # Load user from session using AshAuthentication
     conn = AshAuthentication.Plug.Helpers.retrieve_from_session(conn, :ehs_enforcement)
+
+    # Debug: Log result
+    Logger.debug(
+      "Session auth: current_user after retrieve = #{inspect(conn.assigns[:current_user])}"
+    )
 
     case conn.assigns[:current_user] do
       nil ->
         # No session auth either, return unauthorized
+        Logger.warning("Session auth failed: no current_user in assigns")
+
         conn
         |> put_status(:unauthorized)
         |> Phoenix.Controller.json(%{error: "Not authenticated"})
         |> halt()
 
-      _user ->
+      user ->
         # Session auth succeeded
-        Logger.debug(
-          "Session auth succeeded for user: #{inspect(conn.assigns[:current_user].email)}"
-        )
+        Logger.debug("Session auth succeeded for user: #{inspect(user.email)}")
 
         conn
     end

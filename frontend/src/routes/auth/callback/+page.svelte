@@ -9,34 +9,47 @@
 
 	onMount(async () => {
 		try {
-			// Get token from URL params
+			// Get token from URL params (for JWT-based auth from sertantai-auth)
 			const token = $page.url.searchParams.get('token');
 
-			if (!token) {
-				throw new Error('No authentication token received');
-			}
+			let user;
 
-			// Store token in localStorage and auth store
-			localStorage.setItem('auth_token', token);
+			if (token) {
+				// JWT token-based authentication (tenant users)
+				localStorage.setItem('auth_token', token);
+				authStore.setToken(token);
 
-			// Update auth store
-			authStore.setToken(token);
+				// Fetch user info with the token
+				const response = await fetch('http://localhost:4002/api/user', {
+					headers: {
+						'Authorization': `Bearer ${token}`,
+						'Content-Type': 'application/json'
+					}
+				});
 
-			// Fetch user info with the token
-			const response = await fetch('http://localhost:4002/api/user', {
-				headers: {
-					'Authorization': `Bearer ${token}`,
-					'Content-Type': 'application/json'
+				if (!response.ok) {
+					throw new Error('Failed to fetch user information');
 				}
-			});
 
-			if (!response.ok) {
-				throw new Error('Failed to fetch user information');
+				user = await response.json();
+			} else {
+				// Session-based authentication (GitHub OAuth admin users)
+				// No token in URL, try to fetch user with session cookies
+				const response = await fetch('http://localhost:4002/api/user', {
+					credentials: 'include', // Send cookies with request
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				});
+
+				if (!response.ok) {
+					throw new Error('Authentication failed - no token or session found');
+				}
+
+				user = await response.json();
 			}
 
-			const user = await response.json();
 			authStore.setUser(user);
-
 			status = 'success';
 
 			// Redirect to dashboard after 1 second

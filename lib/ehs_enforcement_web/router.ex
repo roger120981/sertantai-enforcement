@@ -54,6 +54,7 @@ defmodule EhsEnforcementWeb.Router do
   pipeline :api_flexible_authenticated do
     plug :accepts, ["json"]
     plug :fetch_session
+    plug :fetch_cookies
     plug EhsEnforcementWeb.Plugs.FlexibleAuth
   end
 
