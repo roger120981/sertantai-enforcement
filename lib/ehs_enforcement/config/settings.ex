@@ -130,10 +130,19 @@ defmodule EhsEnforcement.Config.Settings do
       end)
 
     case missing do
-      [] -> :ok
-      ["AT_UK_E_API_KEY" | _] -> {:error, :missing_airtable_api_key}
-      ["DATABASE_URL" | _] -> {:error, :missing_database_url}
-      [var | _] -> {:error, String.to_atom("missing_#{String.downcase(var)}")}
+      [] ->
+        :ok
+
+      ["AT_UK_E_API_KEY" | _] ->
+        {:error, :missing_airtable_api_key}
+
+      ["DATABASE_URL" | _] ->
+        {:error, :missing_database_url}
+
+      # Security: Avoid dynamic atom creation - this case should never happen
+      # since required_vars only contains the two vars handled above
+      [var | _] ->
+        {:error, {:missing_env_var, var}}
     end
   end
 

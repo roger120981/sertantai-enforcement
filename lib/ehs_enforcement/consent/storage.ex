@@ -189,8 +189,14 @@ defmodule EhsEnforcement.Consent.Storage do
     end
   end
 
+  # Security: Only convert known field names to atoms
+  # Field names are hardcoded in this module ("terms", "groups", "consented_at", "expires_at")
+  defp get_field(consent, field) when is_map(consent) and is_binary(field) do
+    Map.get(consent, field) || Map.get(consent, String.to_existing_atom(field))
+  end
+
   defp get_field(consent, field) when is_map(consent) do
-    Map.get(consent, field) || Map.get(consent, String.to_atom(field))
+    Map.get(consent, field)
   end
 
   defp get_field(_, _), do: nil

@@ -312,10 +312,12 @@ defmodule EhsEnforcementWeb.Components.ProgressComponent do
 
   # Helper function to get field values that may be prefixed with either "cases_" or "notices_"
   # This allows the component to work with both case scraping and notice scraping
+  # Security: Field names are hardcoded atoms passed from this module (:created, :updated, :found, etc.)
   defp get_field(progress, field_name, default \\ 0) do
     # Try notices_* first, then cases_*, then return default
-    notices_key = String.to_atom("notices_#{field_name}")
-    cases_key = String.to_atom("cases_#{field_name}")
+    # Use String.to_existing_atom since field_name atoms are predefined in the codebase
+    notices_key = String.to_existing_atom("notices_#{field_name}")
+    cases_key = String.to_existing_atom("cases_#{field_name}")
 
     Map.get(progress, notices_key) || Map.get(progress, cases_key, default)
   end

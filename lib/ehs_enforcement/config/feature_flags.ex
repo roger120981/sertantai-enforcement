@@ -100,6 +100,9 @@ defmodule EhsEnforcement.Config.FeatureFlags do
     end
   end
 
+  # Security: Whitelist allowed feature flags to prevent DOS via String.to_atom
+  @allowed_flags ~w(auto_sync manual_sync export_enabled)
+
   @doc """
   Validates a feature flag name.
   """
@@ -114,7 +117,12 @@ defmodule EhsEnforcement.Config.FeatureFlags do
   end
 
   def validate_flag_name(flag_name) when is_binary(flag_name) do
-    validate_flag_name(String.to_atom(flag_name))
+    # Security: Validate flag name against whitelist before converting to atom
+    if flag_name in @allowed_flags do
+      validate_flag_name(String.to_existing_atom(flag_name))
+    else
+      {:error, :unknown_flag}
+    end
   end
 
   @doc """
