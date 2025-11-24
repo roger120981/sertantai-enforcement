@@ -16,7 +16,6 @@
   {"lib/ehs_enforcement/enforcement/resources/offender.ex", :pattern_match},
 
   # Additional call errors - function contract mismatches in legacy code
-  {"lib/ehs_enforcement/legislation/taxa/lat_taxa.ex", :call},
   {"lib/ehs_enforcement/scraping/ea/notice_processor.ex", :call},
 
   # AgencyBehavior module attribute - false positive on @behaviour directive
@@ -50,10 +49,6 @@
 
   # Utility module - unknown types from complex map structures
   {"lib/ehs_enforcement/utility.ex", :unknown_type},
-
-  # Legislation taxa - contract and guard issues in legacy tax-classification code
-  {"lib/ehs_enforcement/legislation/taxa/lat_taxa.ex", :invalid_contract},
-  {"lib/ehs_enforcement/legislation/taxa/lat_taxa.ex", :exact_eq},
 
   # CSV export functions - Enum.map_join return type inference issue
   {"lib/ehs_enforcement_web/live/legislation_live/show.ex", :unmatched_return}
