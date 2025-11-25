@@ -10,7 +10,14 @@ defmodule EhsEnforcementWeb.AuthController do
     require Logger
     Logger.debug("Auth success - token: #{inspect(token)}")
 
-    token_type = if is_nil(token), do: nil, else: Map.get(token, :__struct__, :not_a_struct)
+    token_type =
+      cond do
+        is_nil(token) -> nil
+        is_binary(token) -> :binary_string
+        is_map(token) -> Map.get(token, :__struct__, :plain_map)
+        true -> :other
+      end
+
     Logger.debug("Auth success - token type: #{inspect(token_type)}")
 
     # Load the display_name calculation safely
