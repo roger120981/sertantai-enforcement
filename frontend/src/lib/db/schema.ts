@@ -207,6 +207,13 @@ export interface Legislation {
   legislation_number: number | null
   legislation_type: 'act' | 'regulation' | 'order' | 'acop'
 
+  // Denormalized aggregates (from offences → cases/notices)
+  total_offences: number
+  total_cases: number
+  total_notices: number
+  first_used_date: string | null // ISO date string
+  last_used_date: string | null // ISO date string
+
   // Timestamps
   created_at: string // ISO datetime string
   updated_at: string // ISO datetime string

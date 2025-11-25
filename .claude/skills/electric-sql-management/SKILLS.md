@@ -9,6 +9,24 @@ description: Safe procedures for restarting, troubleshooting, and managing Elect
 
 ElectricSQL provides real-time PostgreSQL sync via HTTP Shape API. This guide covers safe restart procedures and troubleshooting to **prevent accidental database wipes**.
 
+## Development vs Production Environments
+
+The project uses different Docker Compose files for dev and production:
+
+**Development** (`docker-compose.dev.yml`):
+```bash
+# Container names: ehs_dev_postgres, ehs_dev_electric, ehs_dev_redis
+docker-compose -f docker-compose.dev.yml up -d postgres electric
+```
+
+**Production** (`docker-compose.yml`):
+```bash
+# Container names: ehs_enforcement_postgres, ehs_enforcement_electric
+docker-compose up -d
+```
+
+**Key Difference**: Dev uses `ehs_dev_*` naming, production uses `ehs_enforcement_*`. Adjust commands accordingly.
+
 ## Critical Warning: Never Use docker-compose to Restart Electric
 
 ⚠️ **DANGER**: Using `docker-compose up -d electric` will recreate both Electric AND PostgreSQL containers due to dependency chain, **wiping all database data**.
@@ -104,6 +122,38 @@ docker logs ehs_enforcement_electric --tail=50
 # ❌ "Database connection failed" or panic errors
 ```
 
+## Exposing Tables to Electric
+
+Electric only syncs tables explicitly added to the Postgres publication.
+
+### Check Current Publication
+
+```bash
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev -c \
+  "SELECT * FROM pg_publication_tables WHERE pubname = 'electric_publication_default';"
+```
+
+### Add Tables to Publication
+
+When adding new tables, recreate the publication:
+
+```bash
+# Drop and recreate publication with all tables
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev -c \
+  "DROP PUBLICATION IF EXISTS electric_publication_default;
+   CREATE PUBLICATION electric_publication_default FOR TABLE legislation, offenders, cases, notices, agencies;"
+
+# Restart Electric to pick up changes
+docker restart ehs_dev_electric  # or ehs_enforcement_electric for production
+```
+
+### Verify Table is Exposed
+
+```bash
+# Test API endpoint (should return data or empty snapshot, not "Not found")
+curl "http://localhost:3001/v1/shape?table=TABLE_NAME&offset=-1"
+```
+
 ## Common Issues and Fixes
 
 ### Issue: "Table does not exist" Error
@@ -119,7 +169,9 @@ MIX_ENV=dev mix ecto.migrate
 
 ### Issue: "Not found" on Shape Endpoint
 
-**Cause**: Incorrect port mapping in docker-compose.yml.
+**Cause 1**: Table not exposed in Postgres publication.
+
+**Cause 2**: Incorrect port mapping in docker-compose.yml or wrong API format.
 
 **Check**: Electric runs on port 3000 inside container, mapped to 3001 on host.
 
@@ -137,11 +189,23 @@ electric:
     - "3001:3001"  # ❌ Wrong - Electric runs on 3000
 ```
 
-**Fix**:
+**Fix for Cause 1 (Missing publication)**:
+See [Exposing Tables to Electric](#exposing-tables-to-electric) section above.
+
+**Fix for Cause 2 (Port mapping)**:
 ```bash
 # Edit docker-compose.yml to fix port mapping
 # Then restart Electric safely:
 docker restart ehs_enforcement_electric
+```
+
+**Correct API Format**:
+```bash
+# ✅ Correct - uses query parameters
+curl "http://localhost:3001/v1/shape?table=cases&offset=-1"
+
+# ❌ Wrong - missing query parameters
+curl "http://localhost:3001/v1/shape/cases"
 ```
 
 ### Issue: Electric Container Unhealthy
@@ -240,13 +304,18 @@ PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev
 
 | Task | Safe Command |
 |------|--------------|
-| Restart Electric | `docker restart ehs_enforcement_electric` |
-| Electric + cache clear | `docker stop ehs_enforcement_electric && docker rm ehs_enforcement_electric && docker-compose up -d electric --no-deps` |
+| Restart Electric (dev) | `docker restart ehs_dev_electric` |
+| Restart Electric (prod) | `docker restart ehs_enforcement_electric` |
+| Electric + cache clear | `docker stop CONTAINER && docker rm CONTAINER && docker-compose up -d electric --no-deps` |
 | Check Electric status | `docker ps \| grep electric` |
-| Test shape API | `curl http://localhost:3001/v1/shape?table=cases&offset=-1` |
-| View logs | `docker logs ehs_enforcement_electric --tail=50` |
+| Test shape API | `curl "http://localhost:3001/v1/shape?table=TABLE&offset=-1"` |
+| View logs | `docker logs CONTAINER --tail=50` |
+| Check publication | `psql -c "SELECT * FROM pg_publication_tables WHERE pubname = 'electric_publication_default';"` |
+| Add table to Electric | Recreate publication + `docker restart ELECTRIC_CONTAINER` |
 | Full stack restart | `docker-compose down && docker-compose up -d` |
 | **NEVER DO** | `docker-compose up -d electric` (wipes database!) |
+
+Replace `CONTAINER` with `ehs_dev_electric` (dev) or `ehs_enforcement_electric` (prod).
 
 ## Related Documentation
 

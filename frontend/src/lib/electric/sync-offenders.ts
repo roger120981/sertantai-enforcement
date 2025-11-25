@@ -112,25 +112,141 @@ function buildWhereClause(params: OffendersSearchParams): string {
 }
 
 /**
- * Initialize offenders sync (NO baseline - search-first UX)
+ * Baseline sync for all offenders
  *
- * Unlike cases/notices, offenders start empty. Users must search to populate.
+ * Loads all offenders from the database. Since aggregate fields (total_cases, total_notices, last_seen_date)
+ * are not yet populated, we load all offenders to provide a complete dataset.
+ * Users can filter/search using the table controls and AI queries.
  */
-export async function initOffendersSync(): Promise<void> {
-	console.log('[Offenders Sync] Initializing search-first sync (no baseline)...')
+async function syncBaselineOffenders(): Promise<void> {
+	console.log('[Offenders Sync] Starting baseline sync (all offenders)...')
 
 	offendersSyncProgress.update((state) => ({
 		...state,
-		phase: 'idle',
+		phase: 'searching',
+		currentSearch: 'Baseline: All offenders',
+		searchInProgress: true,
+	}))
+
+	try {
+		// Load all offenders (no WHERE clause)
+		// This is fine since we only have ~23k records
+		console.log('[Offenders Sync] Loading all offenders (no filter)')
+
+		const stream = new ShapeStream<Offender>({
+			url: `${ELECTRIC_URL}/v1/shape`,
+			params: {
+				table: 'offenders',
+			},
+		})
+
+		const baselineResults: Offender[] = []
+
+		return new Promise((resolve, reject) => {
+			let initialSyncComplete = false
+
+			const subscription = stream.subscribe((messages) => {
+				messages.forEach((msg: any) => {
+					if (msg.headers?.control) return
+
+					const operation = msg.headers?.operation
+					const data = msg.value as Offender
+
+					if (operation === 'insert' && data) {
+						baselineResults.push(data)
+					}
+				})
+
+				// Mark baseline complete after first batch
+				if (!initialSyncComplete && messages.length > 0) {
+					initialSyncComplete = true
+
+					// Set as cached offenders
+					cachedOffenders.set(baselineResults)
+
+					// Cache the baseline shape
+					const baselineCacheKey = 'baseline_all'
+					searchShapeManager.add(
+						baselineCacheKey,
+						'Baseline: All offenders',
+						subscription,
+						baselineResults.length
+					)
+
+					offendersSyncProgress.update((state) => ({
+						...state,
+						phase: 'idle',
+						searchInProgress: false,
+						currentSearch: null,
+						totalCached: baselineResults.length,
+					}))
+
+					console.log(
+						`[Offenders Sync] Baseline complete: ${baselineResults.length} offenders loaded`
+					)
+
+					resolve()
+				}
+			})
+
+			// Timeout after 30 seconds (baseline can be larger)
+			setTimeout(() => {
+				if (!initialSyncComplete) {
+					offendersSyncProgress.update((state) => ({
+						...state,
+						phase: 'idle',
+						searchInProgress: false,
+						currentSearch: null,
+						error: 'Baseline sync timeout',
+					}))
+					reject(new Error('Baseline sync timeout'))
+				}
+			}, 30000)
+		})
+	} catch (error) {
+		console.error('[Offenders Sync] Baseline sync failed:', error)
+		offendersSyncProgress.update((state) => ({
+			...state,
+			phase: 'idle',
+			searchInProgress: false,
+			currentSearch: null,
+			error: error instanceof Error ? error.message : 'Baseline sync failed',
+		}))
+		throw error
+	}
+}
+
+/**
+ * Initialize offenders sync WITH baseline (all offenders)
+ *
+ * Loads all offenders to populate the table on first load.
+ * Users can filter/search using table controls and AI queries.
+ */
+export async function initOffendersSync(): Promise<void> {
+	console.log('[Offenders Sync] Initializing with baseline (all offenders)...')
+
+	offendersSyncProgress.update((state) => ({
+		...state,
+		phase: 'searching',
 		totalCached: 0,
 		currentSearch: null,
 		searchInProgress: false,
 		error: null,
 	}))
 
-	// No baseline sync - start with empty table
-	// Users trigger syncs by searching
-	console.log('[Offenders Sync] Ready for searches (no baseline)')
+	// Sync baseline (all offenders)
+	try {
+		await syncBaselineOffenders()
+		console.log('[Offenders Sync] Baseline loaded - ready for filtering and queries')
+	} catch (error) {
+		console.error('[Offenders Sync] Baseline sync failed, starting with empty table:', error)
+		// Continue with empty table if baseline fails
+		offendersSyncProgress.update((state) => ({
+			...state,
+			phase: 'idle',
+			error: 'Baseline sync failed - try refreshing the page',
+		}))
+	}
 }
 
 /**

@@ -60,13 +60,8 @@ if pgrep -f "beam.smp.*mix phx.server" > /dev/null; then
     echo "✅ BEAM processes cleaned up"
 fi
 
-# Kill the bash wrapper processes to close the tabs
-echo "🗑️  Closing terminal tabs..."
-pkill -f "bash -c.*Starting sertantai-auth service" 2>/dev/null || true
-pkill -f "bash -c.*Starting Phoenix backend" 2>/dev/null || true
-pkill -f "bash -c.*Starting SvelteKit frontend" 2>/dev/null || true
-sleep 0.5
-echo "✅ Terminal tabs closed"
+# Note: Terminal tabs are left open intentionally
+# The services have been stopped but you can review logs or reuse the terminals
 
 # Stop Docker services if requested
 if [ "$MANAGE_DOCKER" = true ]; then

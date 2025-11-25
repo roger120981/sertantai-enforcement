@@ -10,15 +10,12 @@
     type OffendersSearchParams,
   } from '$lib/electric/sync-offenders'
   import { checkElectricHealth } from '$lib/electric/sync'
-  import {
-    createSvelteTable,
-    getCoreRowModel,
-    getSortedRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-  } from '@tanstack/svelte-table'
-  import type { ColumnDef, SortingState, PaginationState } from '@tanstack/svelte-table'
+  import { TableKit } from '@shotleybuilder/svelte-table-kit'
+  import type { ColumnDef } from '@tanstack/svelte-table'
   import type { Offender } from '$lib/db/schema'
+  import { ViewSelector, SaveViewModal, activeViewId, activeViewModified, viewActions } from 'svelte-table-views-tanstack'
+  import type { TableConfig, SavedView } from 'svelte-table-views-tanstack'
+  import NaturalLanguageQuery from '$lib/components/NaturalLanguageQuery.svelte'
 
   // Svelte stores for offenders data
   const cacheState = browser ? getOffendersCacheState() : null
@@ -26,24 +23,20 @@
   // State
   let loading = true
   let electricHealthy = false
-  let hasSearched = false
+  let baselineLoaded = false
 
-  // Table state
-  let sorting: SortingState = [{ id: 'name', desc: false }]
-  let pagination: PaginationState = {
-    pageIndex: 0,
-    pageSize: 20,
-  }
+  // Saved views state
+  let showSaveModal = false
+  let capturedConfig: TableConfig | null = null
 
-  // Search/filter state
-  let searchTerm = ''
-  let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
-  let companyNumber = ''
-  let location = ''
-  let industry = ''
-  let businessType = ''
+  // AI-generated configuration from NL query
+  let aiFilters: any[] = []
+  let aiSort: { columnId: string; direction: 'asc' | 'desc' } | null = null
+  let aiColumns: string[] = []
+  let aiColumnOrder: string[] = []
+  let configVersion = 0 // Track config version for reactive updates
 
-  // Initialize sync on mount (NO baseline)
+  // Initialize sync on mount (WITH baseline - all offenders)
   onMount(async () => {
     try {
       electricHealthy = await checkElectricHealth()
@@ -51,14 +44,14 @@
 
       if (!electricHealthy) {
         console.warn('[Offenders Page] Electric service unavailable, working offline')
+        loading = false
+        return
       }
 
-      // Initialize (no baseline - search-first)
-      if (electricHealthy) {
-        await initOffendersSync()
-        console.log('[Offenders Page] Search-first sync initialized (no baseline)')
-      }
-
+      // Initialize with baseline (all offenders)
+      await initOffendersSync()
+      console.log('[Offenders Page] Baseline sync complete - all offenders loaded')
+      baselineLoaded = true
       loading = false
     } catch (err) {
       console.error('[Offenders Page] Initialization error:', err)
@@ -69,18 +62,22 @@
   // Column definitions
   const columns: ColumnDef<Offender>[] = [
     {
+      id: 'name',
       accessorKey: 'name',
       header: 'Company Name',
       cell: (info) => info.getValue() || 'N/A',
       enableSorting: true,
+      enableGrouping: false,
     },
     {
+      id: 'company_registration_number',
       accessorKey: 'company_registration_number',
       header: 'Company Number',
       cell: (info) => info.getValue() || '—',
       enableSorting: true,
     },
     {
+      id: 'business_type',
       accessorKey: 'business_type',
       header: 'Type',
       cell: (info) => {
@@ -93,8 +90,10 @@
           .join(' ')
       },
       enableSorting: true,
+      enableGrouping: true,
     },
     {
+      id: 'local_authority',
       accessorKey: 'local_authority',
       header: 'Location',
       cell: (info) => {
@@ -102,8 +101,10 @@
         const parts = [row.local_authority, row.town, row.postcode].filter(Boolean)
         return parts.length > 0 ? parts.join(', ') : '—'
       },
+      enableGrouping: true,
     },
     {
+      id: 'industry',
       accessorKey: 'industry',
       header: 'Industry',
       cell: (info) => {
@@ -111,8 +112,10 @@
         const activity = info.row.original.main_activity
         return ind || activity || '—'
       },
+      enableGrouping: true,
     },
     {
+      id: 'total_cases',
       accessorKey: 'total_cases',
       header: 'Cases',
       cell: (info) => {
@@ -122,6 +125,7 @@
       enableSorting: true,
     },
     {
+      id: 'total_notices',
       accessorKey: 'total_notices',
       header: 'Notices',
       cell: (info) => {
@@ -131,6 +135,7 @@
       enableSorting: true,
     },
     {
+      id: 'total_fines',
       accessorKey: 'total_fines',
       header: 'Total Fines',
       cell: (info) => {
@@ -146,98 +151,136 @@
         const offenderId = info.row.original.id
         return `<a href="/offenders/${offenderId}" class="text-blue-600 hover:text-blue-800 font-medium">View</a>`
       },
+      enableSorting: false,
     },
   ]
 
   // Reactive table data from Svelte store
   $: data = $cachedOffenders || []
 
-  // Client-side filtering
-  $: filteredData = data.filter((offender) => {
-    // All filters are applied via search - no additional client filtering needed
-    // This allows instant filtering of cached results
-    return true
-  })
-
-  // TanStack Table instance
-  $: table = createSvelteTable({
-    data: filteredData,
-    columns,
-    state: {
-      sorting,
-      pagination,
-    },
-    onSortingChange: (updater) => {
-      sorting = typeof updater === 'function' ? updater(sorting) : updater
-    },
-    onPaginationChange: (updater) => {
-      pagination = typeof updater === 'function' ? updater(pagination) : updater
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-  })
-
-  // Handle search with debounce
-  function handleSearchInput(event: Event) {
-    const input = event.target as HTMLInputElement
-    searchTerm = input.value
-
-    // Clear existing timer
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer)
-    }
-
-    // Debounce search (500ms)
-    searchDebounceTimer = setTimeout(() => {
-      if (searchTerm.trim()) {
-        triggerSearch()
-      }
-    }, 500)
+  // Debug logging for tableKitConfig
+  $: if (browser) {
+    console.log('[Offenders Page] TableKit Config:', {
+      configVersion,
+      hasAiConfig,
+      config: tableKitConfig
+    })
   }
 
-  // Trigger search (calls ElectricSQL sync)
-  async function triggerSearch() {
-    // Require at least one search parameter
-    if (
-      !searchTerm.trim() &&
-      !companyNumber.trim() &&
-      !location.trim() &&
-      !industry.trim() &&
-      !businessType
-    ) {
-      return
+  // Handle NL query success - update AI configuration
+  function handleQuerySuccess(filters: any[], sort: any | null, columns?: string[], columnOrder?: string[]) {
+    console.log('[Offenders Page] NL Query Success:', { filters, sort, columns, columnOrder })
+
+    aiFilters = filters || []
+    aiSort = sort
+    aiColumns = columns || []
+    aiColumnOrder = columnOrder || []
+
+    // Clear active view when new query is made
+    viewActions.clearActive()
+
+    // Increment version to trigger config update
+    configVersion++
+    console.log('[Offenders Page] Updated config version:', configVersion)
+  }
+
+  // View management functions
+  function captureCurrentConfig(): TableConfig {
+    // Capture current table state for saving
+    return {
+      filters: aiFilters,
+      sort: aiSort,
+      columns: aiColumns.length > 0 ? aiColumns : columns.map(c => String(c.id)),
+      columnOrder: aiColumnOrder.length > 0 ? aiColumnOrder : columns.map(c => String(c.id)),
+      columnWidths: {},
+      pageSize: 20,
+      grouping: []
+    }
+  }
+
+  function applyViewConfig(config: TableConfig) {
+    console.log('[Offenders Page] Applying view config:', config)
+
+    // Get available column IDs
+    const availableColumnIds = new Set(columns.map(c => String(c.id)))
+
+    // Validate columns - filter out missing columns
+    const validColumns = config.columns.filter(colId => availableColumnIds.has(colId))
+    const validColumnOrder = config.columnOrder.filter(colId => availableColumnIds.has(colId))
+
+    // Check for missing columns
+    const missingColumns = config.columns.filter(colId => !availableColumnIds.has(colId))
+    if (missingColumns.length > 0) {
+      console.warn('[Offenders Page] View contains missing columns:', missingColumns)
     }
 
-    const params: OffendersSearchParams = {
-      searchTerm: searchTerm.trim() || undefined,
-      companyNumber: companyNumber.trim() || undefined,
-      location: location.trim() || undefined,
-      industry: industry.trim() || undefined,
-      businessType: businessType || undefined,
+    // Set AI config which will reactively update TableKit
+    aiFilters = config.filters
+    aiSort = config.sort
+    aiColumns = validColumns.length > 0 ? validColumns : []
+    aiColumnOrder = validColumnOrder.length > 0 ? validColumnOrder : []
+    configVersion++
+  }
+
+  async function handleViewSelected(event: CustomEvent<{ view: SavedView }>) {
+    const view = event.detail.view
+    console.log('[Offenders Page] View selected:', view.name)
+
+    // Clear AI config
+    aiFilters = []
+    aiSort = null
+    aiColumns = []
+    aiColumnOrder = []
+    configVersion++
+
+    // Apply view config to table
+    setTimeout(() => {
+      applyViewConfig(view.config)
+    }, 100)
+  }
+
+  function handleSaveView() {
+    try {
+      capturedConfig = captureCurrentConfig()
+      console.log('[Offenders Page] Opening save modal with config:', capturedConfig)
+      showSaveModal = true
+    } catch (err) {
+      console.error('[Offenders Page] Failed to capture table config:', err)
+      alert('Failed to capture table configuration. Please try again.')
     }
+  }
+
+  async function handleUpdateView() {
+    const activeId = $activeViewId
+    if (!activeId) return
 
     try {
-      await searchOffenders(params)
-      hasSearched = true
-      // Results automatically update via cachedOffenders store
-    } catch (error) {
-      console.error('[Offenders Page] Search failed:', error)
+      const config = captureCurrentConfig()
+      await viewActions.update(activeId, { config })
+      console.log('[Offenders Page] View updated successfully')
+    } catch (err) {
+      console.error('[Offenders Page] Failed to update view:', err)
+      alert('Failed to update view. Please try again.')
     }
   }
 
-  // Clear all filters
-  function clearFilters() {
-    searchTerm = ''
-    companyNumber = ''
-    location = ''
-    industry = ''
-    businessType = ''
-    if (searchDebounceTimer) {
-      clearTimeout(searchDebounceTimer)
-    }
+  function handleViewSaved(event: CustomEvent<{ id: string; name: string }>) {
+    console.log('[Offenders Page] View saved:', event.detail.name)
   }
+
+  // Build TableKit configuration from AI (reactive - updates when configVersion changes)
+  $: hasAiConfig = aiFilters.length > 0 || aiSort !== null || aiColumns.length > 0 || aiColumnOrder.length > 0
+
+  $: tableKitConfig = hasAiConfig ? {
+    id: `ai_query_v${configVersion}`,
+    version: '1.0',
+    defaultFilters: aiFilters.length > 0 ? aiFilters : undefined,
+    defaultSorting: aiSort ? [{ columnId: aiSort.columnId, direction: aiSort.direction }] : undefined,
+    defaultColumnOrder: aiColumnOrder.length > 0 ? aiColumnOrder : undefined,
+    defaultVisibleColumns: aiColumns.length > 0 ? aiColumns : undefined,
+    filterLogic: 'and' as const
+  } : undefined
+
 </script>
 
 <svelte:head>
@@ -247,13 +290,15 @@
 
 <div class="container mx-auto px-4 py-8">
   <!-- Header -->
-  <div class="mb-8">
-    <div class="flex items-center justify-between mb-2">
-      <h1 class="text-4xl font-bold text-gray-900">Offenders</h1>
-      <a href="/" class="text-blue-600 hover:text-blue-800 font-medium"> ← Back to Dashboard </a>
-    </div>
-    <p class="text-gray-600">Search for companies and individuals subject to enforcement action</p>
+  <div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Offenders</h1>
+    <p class="text-gray-600">Companies and individuals subject to enforcement action - filter, sort, and group dynamically</p>
   </div>
+
+  <!-- Natural Language Query (browser only to avoid SSR issues) -->
+  {#if browser}
+    <NaturalLanguageQuery onQuerySuccess={handleQuerySuccess} placeholder="Ask about offenders in plain English..." />
+  {/if}
 
   <!-- Sync Status Banner -->
   {#if $offendersSyncProgress.searchInProgress}
@@ -275,121 +320,6 @@
     </div>
   {/if}
 
-  <!-- Search-First Prompt (shown when no searches yet) -->
-  {#if !loading && !hasSearched && filteredData.length === 0}
-    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-12 text-center mb-6">
-      <div class="text-6xl mb-4">🔍</div>
-      <h2 class="text-2xl font-bold text-gray-900 mb-3">Search to Load Offenders</h2>
-      <p class="text-gray-600 mb-6 max-w-2xl mx-auto">
-        This page uses search-driven caching. Enter a company name, registration number, location, or industry below to load matching offenders. Your search results will be cached for offline access.
-      </p>
-      <p class="text-sm text-gray-500">
-        ℹ️ Tip: Start typing in the search box below to find offenders
-      </p>
-    </div>
-  {/if}
-
-  <!-- Search & Filters Panel -->
-  <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold text-gray-900">🔍 Search Offenders</h2>
-      <button onclick={clearFilters} class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-        Clear All
-      </button>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <!-- Company Name Search -->
-      <div class="md:col-span-2">
-        <label for="search" class="block text-sm font-medium text-gray-700 mb-1">
-          Company Name
-        </label>
-        <input
-          id="search"
-          type="text"
-          value={searchTerm}
-          oninput={handleSearchInput}
-          placeholder="Search by company name..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <p class="mt-1 text-xs text-gray-500">
-          Type to search (debounced 500ms) • Triggers server sync on enter
-        </p>
-      </div>
-
-      <!-- Company Number -->
-      <div>
-        <label for="companyNumber" class="block text-sm font-medium text-gray-700 mb-1">
-          Company Registration Number
-        </label>
-        <input
-          id="companyNumber"
-          type="text"
-          bind:value={companyNumber}
-          placeholder="e.g., 04622955"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      <!-- Location -->
-      <div>
-        <label for="location" class="block text-sm font-medium text-gray-700 mb-1">
-          Location (Town/Postcode)
-        </label>
-        <input
-          id="location"
-          type="text"
-          bind:value={location}
-          placeholder="e.g., London, SW1A"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      <!-- Industry -->
-      <div>
-        <label for="industry" class="block text-sm font-medium text-gray-700 mb-1">
-          Industry/Activity
-        </label>
-        <input
-          id="industry"
-          type="text"
-          bind:value={industry}
-          placeholder="e.g., Manufacturing"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      <!-- Business Type -->
-      <div>
-        <label for="businessType" class="block text-sm font-medium text-gray-700 mb-1">
-          Business Type
-        </label>
-        <select
-          id="businessType"
-          bind:value={businessType}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All Types</option>
-          <option value="limited_company">Limited Company</option>
-          <option value="plc">PLC</option>
-          <option value="partnership">Partnership</option>
-          <option value="individual">Individual</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Search Button -->
-    <div class="mt-4">
-      <button
-        onclick={triggerSearch}
-        disabled={!searchTerm.trim() && !companyNumber.trim() && !location.trim() && !industry.trim() && !businessType}
-        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-      >
-        Search
-      </button>
-    </div>
-  </div>
 
   <!-- Loading State -->
   {#if loading}
@@ -402,134 +332,126 @@
       </div>
     </div>
 
-  <!-- Empty Search State -->
-  {:else if filteredData.length === 0 && hasSearched}
+  <!-- Empty State (no data loaded) -->
+  {:else if !loading && data.length === 0}
     <div class="bg-gray-50 border border-gray-200 rounded-lg p-12 text-center">
-      <h3 class="text-gray-900 font-semibold text-lg mb-2">No Offenders Found</h3>
+      <div class="text-6xl mb-4">📊</div>
+      <h3 class="text-gray-900 font-semibold text-lg mb-2">No Offenders Available</h3>
       <p class="text-gray-600 mb-4">
-        No results match your search criteria. Try different search terms or clear your filters.
+        {#if !electricHealthy}
+          Electric service is unavailable. Please check your connection.
+        {:else}
+          No offenders found. The baseline sync may have failed or returned no results.
+        {/if}
       </p>
-      <button
-        onclick={clearFilters}
-        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-      >
-        Clear Filters
-      </button>
     </div>
 
   <!-- Offenders Table -->
-  {:else if hasSearched}
-    <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-      <!-- Stats Card -->
-      <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-sm text-gray-600">Total Offenders Found</div>
-            <div class="text-2xl font-bold text-gray-900">{filteredData.length.toLocaleString()}</div>
-          </div>
-          {#if $cacheState && $cacheState.totalShapes > 0}
-            <div class="text-sm text-gray-600">
-              {$cacheState.totalShapes} cached search{$cacheState.totalShapes > 1 ? 'es' : ''}
-            </div>
-          {/if}
+  {:else if data.length > 0}
+    <!-- Stats Card -->
+    <div class="bg-white border border-gray-200 rounded-lg px-6 py-4 mb-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-gray-600">Total Offenders</div>
+          <div class="text-2xl font-bold text-gray-900">{data.length.toLocaleString()}</div>
         </div>
-      </div>
-
-      <!-- Table -->
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            {#each $table.getHeaderGroups() as headerGroup}
-              <tr>
-                {#each headerGroup.headers as header}
-                  <th
-                    scope="col"
-                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                    onclick={() => {
-                      if (header.column.getCanSort()) {
-                        header.column.getToggleSortingHandler()?.()
-                      }
-                    }}
-                  >
-                    <div class="flex items-center gap-2">
-                      {#if !header.isPlaceholder}
-                        {#if typeof header.column.columnDef.header === 'function'}
-                          {header.column.columnDef.header(header.getContext())}
-                        {:else}
-                          {header.column.columnDef.header}
-                        {/if}
-                      {/if}
-                      {#if header.column.getIsSorted()}
-                        <span class="text-blue-600">
-                          {header.column.getIsSorted() === 'asc' ? '↑' : '↓'}
-                        </span>
-                      {/if}
-                    </div>
-                  </th>
-                {/each}
-              </tr>
-            {/each}
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            {#each $table.getRowModel().rows as row}
-              <tr class="hover:bg-gray-50">
-                {#each row.getVisibleCells() as cell}
-                  <td class="px-6 py-4 text-sm text-gray-900">
-                    {#if typeof cell.column.columnDef.cell === 'function'}
-                      {@html cell.column.columnDef.cell(cell.getContext())}
-                    {:else}
-                      {cell.getValue()}
-                    {/if}
-                  </td>
-                {/each}
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Pagination -->
-      <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-gray-700">Rows per page:</span>
-          <select
-            bind:value={pagination.pageSize}
-            onchange={() => {
-              pagination = { ...pagination, pageIndex: 0 }
-            }}
-            class="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
+        <div class="text-sm text-gray-600">
+          All offenders loaded
         </div>
-
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-gray-700">
-            Page {$table.getState().pagination.pageIndex + 1} of {$table.getPageCount()}
-          </span>
-          <button
-            onclick={() => $table.previousPage()}
-            disabled={!$table.getCanPreviousPage()}
-            class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <button
-            onclick={() => $table.nextPage()}
-            disabled={!$table.getCanNextPage()}
-            class="px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      </div>
-
-      <div class="mt-4 px-6 pb-4 text-sm text-gray-600">
-        Showing {filteredData.length} of {$cachedOffenders.length} offenders
       </div>
     </div>
+
+    <!-- TableKit Component -->
+    <TableKit
+      {data}
+      {columns}
+      config={tableKitConfig}
+      storageKey="offenders_table_v2"
+      persistState={!hasAiConfig}
+      align="left"
+      features={{
+        columnVisibility: true,
+        columnResizing: true,
+        columnReordering: true,
+        filtering: true,
+        sorting: true,
+        sortingMode: 'control',
+        pagination: true,
+        grouping: true
+      }}
+    >
+      <!-- Custom toolbar controls (left side) -->
+      <svelte:fragment slot="toolbar-left">
+        <ViewSelector on:viewSelected={handleViewSelected} />
+
+        <!-- Save/Update Button (Split when view is active and modified) -->
+        {#if $activeViewId && $activeViewModified}
+          <!-- Split Button: Update | Save New -->
+          <div class="inline-flex rounded-md shadow-sm">
+            <!-- Update Existing Button -->
+            <button
+              type="button"
+              on:click={handleUpdateView}
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-l-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Update View
+            </button>
+            <!-- Save as New Button -->
+            <button
+              type="button"
+              on:click={handleSaveView}
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 border-l border-indigo-500 rounded-r-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              Save New
+            </button>
+          </div>
+        {:else}
+          <!-- Regular Save Button -->
+          <button
+            type="button"
+            on:click={handleSaveView}
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+              />
+            </svg>
+            Save View
+          </button>
+        {/if}
+      </svelte:fragment>
+
+      <!-- Custom cell rendering for actions column -->
+      <svelte:fragment slot="cell" let:cell let:column>
+        {#if column === 'actions'}
+          <a href="/offenders/{cell.row.original.id}" class="text-blue-600 hover:text-blue-800 font-medium">
+            View
+          </a>
+        {:else}
+          {cell.getValue()}
+        {/if}
+      </svelte:fragment>
+    </TableKit>
 
     <!-- Cached Searches Display -->
     {#if $cacheState && $cacheState.totalShapes > 0}
@@ -549,3 +471,12 @@
     {/if}
   {/if}
 </div>
+
+<!-- Save View Modal -->
+{#if browser && showSaveModal && capturedConfig}
+  <SaveViewModal
+    bind:open={showSaveModal}
+    config={capturedConfig}
+    on:save={handleViewSaved}
+  />
+{/if}
