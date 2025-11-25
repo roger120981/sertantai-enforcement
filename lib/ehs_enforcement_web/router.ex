@@ -229,6 +229,12 @@ defmodule EhsEnforcementWeb.Router do
     patch "/notices/:id", NoticesController, :update
     get "/offenders/:id", OffendersController, :show
     patch "/offenders/:id", OffendersController, :update
+
+    # Offences API endpoints (list, view, create, update)
+    get "/offences", OffencesController, :index
+    get "/offences/:id", OffencesController, :show
+    post "/offences", OffencesController, :create
+    patch "/offences/:id", OffencesController, :update
   end
 
   # Server-Sent Events (SSE) for real-time scraping progress

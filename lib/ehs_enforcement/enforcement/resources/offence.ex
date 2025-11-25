@@ -278,6 +278,56 @@ defmodule EhsEnforcement.Enforcement.Offence do
 
       load([:legislation])
     end
+
+    calculate :parent_type, :string do
+      description "Type of parent record: 'Case' or 'Notice'"
+
+      calculation(
+        expr(
+          cond do
+            not is_nil(case_id) -> "Case"
+            not is_nil(notice_id) -> "Notice"
+            true -> "Unknown"
+          end
+        )
+      )
+    end
+
+    calculate :parent_reference, :string do
+      description "Reference number from parent case or notice"
+
+      calculation(
+        expr(
+          cond do
+            not is_nil(case_id) -> case.case_reference
+            not is_nil(notice_id) -> notice.regulator_ref_number
+            true -> nil
+          end
+        )
+      )
+
+      load([:case, :notice])
+    end
+
+    calculate :severity_category, :string do
+      description "Severity category based on fine amount: Low (< £1000), Medium (£1000-£10000), High (> £10000)"
+
+      calculation(
+        expr(
+          cond do
+            is_nil(fine) or fine == 0 -> "None"
+            fine < 1000 -> "Low"
+            fine < 10000 -> "Medium"
+            true -> "High"
+          end
+        )
+      )
+    end
+
+    calculate :has_sequence, :boolean do
+      description "True if this offence is part of a multi-violation sequence"
+      calculation(expr(not is_nil(sequence_number)))
+    end
   end
 
   code_interface do
