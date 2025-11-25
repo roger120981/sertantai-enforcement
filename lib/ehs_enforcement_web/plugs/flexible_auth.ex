@@ -183,18 +183,8 @@ defmodule EhsEnforcementWeb.Plugs.FlexibleAuth do
 
   # Try session-based authentication (GitHub OAuth)
   defp try_session_auth(conn) do
-    # Debug: Log session contents
-    session = Plug.Conn.get_session(conn)
-    Logger.debug("Session auth: session keys = #{inspect(Map.keys(session))}")
-    Logger.debug("Session auth: has user? = #{inspect(Map.has_key?(session, "user"))}")
-
     # Load user from session using AshAuthentication
     conn = AshAuthentication.Plug.Helpers.retrieve_from_session(conn, :ehs_enforcement)
-
-    # Debug: Log result
-    Logger.debug(
-      "Session auth: current_user after retrieve = #{inspect(conn.assigns[:current_user])}"
-    )
 
     case conn.assigns[:current_user] do
       nil ->

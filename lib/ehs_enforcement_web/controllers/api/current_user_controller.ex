@@ -32,8 +32,6 @@ defmodule EhsEnforcementWeb.Api.CurrentUserController do
           display_name: Map.get(user_with_details, :display_name)
         }
 
-        Logger.debug("CurrentUserController: returning user data: #{inspect(response_data)}")
-
         conn
         |> json(response_data)
     end
