@@ -26,7 +26,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: ehs_enforcement_dev
+      POSTGRES_DB: sertantai_enforcement_dev
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
@@ -53,7 +53,7 @@ services:
     image: electricsql/electric:latest
     container_name: ehs_dev_electric
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ehs_enforcement_dev
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sertantai_enforcement_dev
       HTTP_PORT: 3000
       ELECTRIC_INSECURE: "true"  # Development only! Use ELECTRIC_SECRET in production
       PG_PROXY_PASSWORD: proxy_password  # Secure in production!
