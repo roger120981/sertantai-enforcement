@@ -7,6 +7,12 @@ defmodule EhsEnforcementWeb.AuthController do
   use AshAuthentication.Phoenix.Controller
 
   def success(conn, _activity, user, token) do
+    require Logger
+    Logger.debug("Auth success - token: #{inspect(token)}")
+
+    token_type = if is_nil(token), do: nil, else: Map.get(token, :__struct__, :not_a_struct)
+    Logger.debug("Auth success - token type: #{inspect(token_type)}")
+
     # Load the display_name calculation safely
     user_with_display_name = Ash.load!(user, [:display_name])
 
@@ -16,6 +22,7 @@ defmodule EhsEnforcementWeb.AuthController do
 
     # Extract token string from token struct
     token_string = extract_token_string(token)
+    Logger.debug("Auth success - extracted token_string: #{inspect(token_string)}")
 
     # Get frontend URL from config (defaults to localhost:5173 for dev)
     frontend_url = Application.get_env(:ehs_enforcement, :frontend_url, "http://localhost:5173")
