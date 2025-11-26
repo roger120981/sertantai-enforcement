@@ -18,11 +18,11 @@
   # Additional call errors - function contract mismatches in legacy code
   {"lib/ehs_enforcement/scraping/ea/notice_processor.ex", :call},
 
+  # AI client module type - Dialyzer prefers specific union over general module() type
+  {"lib/ehs_enforcement/ai/client.ex", :contract_supertype},
+
   # AgencyBehavior module attribute - false positive on @behaviour directive
   {"lib/ehs_enforcement/scraping/agencies/hse.ex", :pattern_match},
-
-  # Complex with statement in EA case processor - Dialyzer struggles with nested with
-  {"lib/ehs_enforcement/scraping/ea/case_processor.ex", :pattern_match},
 
   # HSE case scraper retry logic - pattern match on rate limit error
   {"lib/ehs_enforcement/scraping/hse/case_scraper.ex", :pattern_match},
