@@ -14,6 +14,8 @@ defmodule EhsEnforcement.Scraping.Hse.CaseProcessor do
 
   alias EhsEnforcement.Agencies.Hse.OffenderBuilder
   alias EhsEnforcement.Enforcement
+  alias EhsEnforcement.Enforcement.BreachParser
+  alias EhsEnforcement.Enforcement.LegislationMatcher
   alias EhsEnforcement.Scraping.Hse.CaseScraper.ScrapedCase
 
   @hse_agency_code :hse
@@ -143,6 +145,13 @@ defmodule EhsEnforcement.Scraping.Hse.CaseProcessor do
              result = create_case(processed_case, actor)
              Logger.debug("💾 Create case result: #{inspect(result)}")
              result
+           ),
+         {:ok, _offences} <-
+           (
+             Logger.debug("🔗 About to create offences for case: #{case_record.id}")
+             result = create_case_offences(case_record, scraped_case.offence_breaches, actor)
+             Logger.debug("🔗 Create offences result: #{inspect(result)}")
+             result
            ) do
       Logger.info("✅ Successfully processed and created case: #{case_record.regulator_id}")
       {:ok, case_record}
@@ -157,6 +166,74 @@ defmodule EhsEnforcement.Scraping.Hse.CaseProcessor do
 
         error
     end
+  end
+
+  @doc """
+  Create Offence resources from breach data for an HSE case.
+
+  Parses breach text, finds/creates legislation, and creates linked Offence records.
+  Returns {:ok, offences} or {:error, reason}
+  """
+  def create_case_offences(case_record, breach_data, actor \\ nil)
+
+  def create_case_offences(_case_record, nil, _actor), do: {:ok, []}
+  def create_case_offences(_case_record, "", _actor), do: {:ok, []}
+  def create_case_offences(_case_record, [], _actor), do: {:ok, []}
+
+  def create_case_offences(case_record, breach_data, actor) when is_list(breach_data) do
+    Logger.debug(
+      "Creating #{length(breach_data)} offences for HSE case: #{case_record.regulator_id}"
+    )
+
+    # Parse all breaches and extract legislation
+    parsed_breaches = BreachParser.parse_breaches(breach_data)
+
+    # Create offence records with legislation linking
+    offences_data =
+      Enum.map(parsed_breaches, fn parsed ->
+        # Find or create legislation for this breach
+        {:ok, legislation_id} =
+          LegislationMatcher.find_or_create_from_breach(
+            parsed.offence_description,
+            actor: actor
+          )
+
+        # Build offence attributes
+        %{
+          case_id: case_record.id,
+          offence_description: parsed.offence_description,
+          legislation_part: parsed.legislation_part,
+          legislation_id: legislation_id,
+          fine: parsed.fine,
+          sequence_number: parsed.sequence_number
+        }
+        # Filter out nil values
+        |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+        |> Map.new()
+      end)
+
+    # Bulk create offences
+    case Enforcement.bulk_create_offences(offences_data: offences_data) do
+      {:ok, _bulk_result} ->
+        Logger.info(
+          "Successfully created #{length(offences_data)} offences for HSE case: #{case_record.regulator_id}"
+        )
+
+        {:ok, offences_data}
+
+      {:error, error} ->
+        Logger.error(
+          "Failed to create offences for HSE case #{case_record.regulator_id}: #{inspect(error)}"
+        )
+
+        {:error, error}
+    end
+  end
+
+  def create_case_offences(case_record, breach_text, actor) when is_binary(breach_text) do
+    # Convert semicolon-separated string to list
+    breach_list = String.split(breach_text, ";") |> Enum.map(&String.trim/1)
+    create_case_offences(case_record, breach_list, actor)
   end
 
   @doc """

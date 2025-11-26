@@ -16,6 +16,8 @@ defmodule EhsEnforcement.Scraping.Ea.CaseProcessor do
   alias EhsEnforcement.Agencies.Ea.DataTransformer
   alias EhsEnforcement.Agencies.Ea.OffenderBuilder
   alias EhsEnforcement.Enforcement
+  alias EhsEnforcement.Enforcement.BreachParser
+  alias EhsEnforcement.Enforcement.LegislationMatcher
   alias EhsEnforcement.Enforcement.UnifiedCaseProcessor
   alias EhsEnforcement.Scraping.Ea.CaseScraper.EaDetailRecord
   alias EhsEnforcement.Scraping.Shared.EnvironmentalHelpers
@@ -362,28 +364,64 @@ defmodule EhsEnforcement.Scraping.Ea.CaseProcessor do
   end
 
   @doc """
-  Create Violation resources for EA multi-violation cases.
+  Create Offence resources for EA cases with legislation linking.
 
-  Returns {:ok, violations} or {:error, reason}
+  Processes ALL EA cases (not just multi-violation), extracts legislation,
+  and creates properly linked Offence records.
+
+  Returns {:ok, offences} or {:error, reason}
   """
-  def create_case_violations(case_record, violations_data, _actor \\ nil) do
+  def create_case_violations(case_record, violations_data, actor \\ nil) do
     if is_list(violations_data) and length(violations_data) > 0 do
       Logger.debug(
         "Creating #{length(violations_data)} offences for EA case: #{case_record.regulator_id}"
       )
 
-      # Use bulk_create action for efficient offence creation (unified schema)
-      case Enforcement.bulk_create_offences(
-             offences_data: violations_data,
-             case_id: case_record.id
-           ) do
+      # Process each violation to find/create legislation
+      offences_data =
+        Enum.map(violations_data, fn violation ->
+          # Build combined offence text for legislation lookup
+          offence_text =
+            case violation do
+              %{offence_description: desc} when is_binary(desc) -> desc
+              %{legal_act: act, legal_section: section} -> "#{act}, #{section}"
+              _ -> nil
+            end
+
+          # Find or create legislation
+          {:ok, legislation_id} =
+            if offence_text do
+              LegislationMatcher.find_or_create_from_breach(offence_text, actor: actor)
+            else
+              {:ok, nil}
+            end
+
+          # Build offence attributes with legislation link
+          %{
+            case_id: case_record.id,
+            offence_description: violation[:offence_description],
+            legislation_part: violation[:legislation_part],
+            legislation_id: legislation_id,
+            fine: violation[:fine],
+            sequence_number: violation[:sequence_number]
+          }
+          # Filter out nil values
+          |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+          |> Map.new()
+        end)
+
+      # Bulk create offences with legislation linkage
+      case Enforcement.bulk_create_offences(offences_data: offences_data) do
         {:ok, _bulk_result} ->
-          Logger.info("Successfully created violations for EA case: #{case_record.regulator_id}")
-          {:ok, violations_data}
+          Logger.info(
+            "Successfully created #{length(offences_data)} offences for EA case: #{case_record.regulator_id}"
+          )
+
+          {:ok, offences_data}
 
         {:error, error} ->
           Logger.error(
-            "Failed to create violations for EA case #{case_record.regulator_id}: #{inspect(error)}"
+            "Failed to create offences for EA case #{case_record.regulator_id}: #{inspect(error)}"
           )
 
           {:error, error}
@@ -498,22 +536,28 @@ defmodule EhsEnforcement.Scraping.Ea.CaseProcessor do
   end
 
   defp build_violations_data(%EaDetailRecord{} = ea_record) do
-    if multi_violation_case?(ea_record) do
-      # For now, create single violation - this could be enhanced
-      # to parse multiple violations from EA detail pages
+    # Build combined offence description from EA data
+    offence_text = build_combined_breaches_text(ea_record)
+
+    # Return empty if no offence description
+    if is_nil(offence_text) or offence_text == "" do
+      []
+    else
+      # Parse the offence text to extract legislation info
+      parsed = BreachParser.parse_breach(offence_text)
+
+      # Create violation data for ALL EA cases (not just multi-violation)
       [
         %{
-          violation_sequence: 1,
-          case_reference: ea_record.case_reference,
-          individual_fine: ea_record.total_fine || Decimal.new(0),
-          offence_description: ea_record.offence_description,
+          offence_description: offence_text,
+          legislation_part: parsed.legislation_part || ea_record.section,
+          fine: ea_record.total_fine,
+          sequence_number: 1,
+          # Store EA-specific fields for legislation matching
           legal_act: ea_record.act,
           legal_section: ea_record.section
         }
       ]
-    else
-      # Single violation cases don't need Violation resources
-      []
     end
   end
 
