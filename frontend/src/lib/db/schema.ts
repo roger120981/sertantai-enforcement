@@ -220,6 +220,41 @@ export interface Legislation {
 }
 
 /**
+ * Offence Type
+ * Mirrors: EhsEnforcement.Enforcement.Offence
+ */
+export interface Offence {
+  // Primary key
+  id: string
+
+  // Core offence details
+  offence_description: string | null
+  offence_reference: string | null
+  legislation_part: string | null
+
+  // Financial and sequence information
+  fine: number | null // Stored as Decimal in DB, number in JS
+  sequence_number: number | null
+
+  // Relationships (foreign keys)
+  case_id: string | null
+  notice_id: string | null
+  legislation_id: string // Required
+
+  // Calculated fields (computed by backend)
+  parent_type?: 'Case' | 'Notice' | 'Unknown'
+  parent_reference?: string | null
+  severity_category?: 'None' | 'Low' | 'Medium' | 'High'
+  has_sequence?: boolean
+  total_financial_penalty?: number
+  legislation_reference?: string | null
+
+  // Timestamps
+  created_at: string // ISO datetime string
+  updated_at: string // ISO datetime string
+}
+
+/**
  * SavedView Type
  * User-saved table configurations for quick reuse
  * Local-only storage (not synced to backend)
