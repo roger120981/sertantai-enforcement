@@ -67,53 +67,65 @@ export async function initOffencesSync(): Promise<void> {
 		}
 
 		// Create shape stream for all offences
-		shapeStream = new ShapeStream<Offence>({
+		const stream = new ShapeStream<Offence>({
 			url: `${ELECTRIC_URL}/v1/shape`,
 			params: {
 				table: 'offences',
 			},
 		})
 
-		console.log('[Offences Sync] Shape stream created, waiting for baseline...')
+		console.log('[Offences Sync] Shape stream created, subscribing...')
 
-		// Collect baseline data
-		const offencesMap = new Map<string, Offence>()
+		const offences: Offence[] = []
 
-		for await (const messages of shapeStream) {
-			for (const message of messages) {
-				// Handle inserts, updates, and deletes
-				if (message.headers.action === 'delete') {
-					offencesMap.delete(message.key)
-					console.log(`[Offences Sync] Deleted offence: ${message.key}`)
-				} else {
-					const offence = message.value as Offence
-					offencesMap.set(message.key, offence)
+		shapeStream = stream.subscribe((messages) => {
+			messages.forEach((msg: any) => {
+				if (msg.headers?.control) {
+					// Handle control messages (up-to-date)
+					if (msg.headers.control === 'up-to-date') {
+						console.log('[Offences Sync] Baseline complete!')
+						console.log('[Offences Sync] Total offences loaded:', offences.length)
+
+						cachedOffences.set(offences)
+						offencesSyncProgress.update((state) => ({
+							...state,
+							phase: 'streaming',
+							total: offences.length,
+						}))
+					}
+					return
 				}
-			}
 
-			// Check if we've completed the baseline
-			if (messages.some((msg) => msg.headers.control === 'up-to-date')) {
-				console.log('[Offences Sync] Baseline complete!')
-				console.log('[Offences Sync] Total offences loaded:', offencesMap.size)
+				const operation = msg.headers?.operation
+				const data = msg.value as Offence
 
-				// Update store with baseline data
-				const offencesArray = Array.from(offencesMap.values())
-				cachedOffences.set(offencesArray)
+				if (operation === 'insert' && data) {
+					offences.push(data)
+					console.log(`[Offences Sync] Insert: ${data.offence_description?.substring(0, 50) || data.id}`)
+				} else if (operation === 'update' && data) {
+					const index = offences.findIndex((o) => o.id === data.id)
+					if (index !== -1) {
+						offences[index] = data
+						console.log(`[Offences Sync] Update: ${data.offence_description?.substring(0, 50) || data.id}`)
+					}
+				} else if (operation === 'delete' && msg.key) {
+					const index = offences.findIndex((o) => o.id === msg.key)
+					if (index !== -1) {
+						offences.splice(index, 1)
+						console.log(`[Offences Sync] Delete: ${msg.key}`)
+					}
+				}
 
+				// Update store with current data
+				cachedOffences.set([...offences])
 				offencesSyncProgress.update((state) => ({
 					...state,
-					phase: 'streaming',
-					total: offencesArray.length,
+					total: offences.length,
 				}))
+			})
+		})
 
-				break // Exit baseline loop, continue streaming in background
-			}
-		}
-
-		console.log('[Offences Sync] Baseline sync completed, now streaming updates...')
-
-		// Continue streaming updates in background
-		streamUpdates(shapeStream, offencesMap)
+		console.log('[Offences Sync] Successfully subscribed to stream')
 	} catch (err) {
 		console.error('[Offences Sync] Error during sync:', err)
 		offencesSyncProgress.update((state) => ({
@@ -122,55 +134,6 @@ export async function initOffencesSync(): Promise<void> {
 			error: err instanceof Error ? err.message : 'Unknown error during sync',
 		}))
 		throw err
-	}
-}
-
-/**
- * Stream real-time updates after baseline
- */
-async function streamUpdates(
-	stream: ShapeStream<Offence>,
-	offencesMap: Map<string, Offence>
-): Promise<void> {
-	try {
-		for await (const messages of stream) {
-			let hasChanges = false
-
-			for (const message of messages) {
-				// Skip control messages
-				if (message.headers.control) continue
-
-				hasChanges = true
-
-				// Handle inserts, updates, and deletes
-				if (message.headers.action === 'delete') {
-					offencesMap.delete(message.key)
-					console.log(`[Offences Sync] Real-time delete: ${message.key}`)
-				} else {
-					const offence = message.value as Offence
-					offencesMap.set(message.key, offence)
-					console.log(
-						`[Offences Sync] Real-time ${message.headers.action}: ${offence.offence_description?.substring(0, 50) || offence.id}`
-					)
-				}
-			}
-
-			// Update store if there were changes
-			if (hasChanges) {
-				const offencesArray = Array.from(offencesMap.values())
-				cachedOffences.set(offencesArray)
-				offencesSyncProgress.update((state) => ({
-					...state,
-					total: offencesArray.length,
-				}))
-			}
-		}
-	} catch (err) {
-		console.error('[Offences Sync] Error during streaming:', err)
-		offencesSyncProgress.update((state) => ({
-			...state,
-			error: err instanceof Error ? err.message : 'Unknown error during streaming',
-		}))
 	}
 }
 
