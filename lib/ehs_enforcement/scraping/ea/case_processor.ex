@@ -24,7 +24,7 @@ defmodule EhsEnforcement.Scraping.Ea.CaseProcessor do
 
   @behaviour EhsEnforcement.Enforcement.CaseProcessorBehaviour
 
-  @ea_agency_code :environment_agency
+  @ea_agency_code :ea
 
   defmodule ProcessedEaCase do
     @moduledoc "Struct representing an EA case ready for Ash resource creation"
@@ -166,7 +166,7 @@ defmodule EhsEnforcement.Scraping.Ea.CaseProcessor do
              Logger.debug("📝 Process EA case result: #{inspect(result)}")
              result
            ),
-         {:ok, case_record} <-
+         {:ok, case_record, _status} <-
            (
              Logger.debug("💾 About to create EA case: #{processed_case.regulator_id}")
              result = create_ea_case(processed_case, actor)
@@ -377,54 +377,94 @@ defmodule EhsEnforcement.Scraping.Ea.CaseProcessor do
         "Creating #{length(violations_data)} offences for EA case: #{case_record.regulator_id}"
       )
 
-      # Process each violation to find/create legislation
+      # Process each violation to find/create legislation, filtering out those without legislation
       offences_data =
-        Enum.map(violations_data, fn violation ->
+        Enum.reduce(violations_data, [], fn violation, acc ->
           # Build combined offence text for legislation lookup
+          # Prioritize legal_act+legal_section over offence_description for better parsing
           offence_text =
             case violation do
-              %{offence_description: desc} when is_binary(desc) -> desc
-              %{legal_act: act, legal_section: section} -> "#{act}, #{section}"
-              _ -> nil
+              %{legal_act: act, legal_section: section}
+              when is_binary(act) and is_binary(section) ->
+                "#{act}, #{section}"
+
+              %{legal_act: act} when is_binary(act) ->
+                act
+
+              %{offence_description: desc} when is_binary(desc) ->
+                desc
+
+              _ ->
+                nil
             end
 
           # Find or create legislation
-          {:ok, legislation_id} =
+          legislation_result =
             if offence_text do
               LegislationMatcher.find_or_create_from_breach(offence_text, actor: actor)
             else
               {:ok, nil}
             end
 
-          # Build offence attributes with legislation link
-          %{
-            case_id: case_record.id,
-            offence_description: violation[:offence_description],
-            legislation_part: violation[:legislation_part],
-            legislation_id: legislation_id,
-            fine: violation[:fine],
-            sequence_number: violation[:sequence_number]
-          }
-          # Filter out nil values
-          |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-          |> Map.new()
+          case legislation_result do
+            {:ok, nil} ->
+              Logger.warning(
+                "Skipping EA offence without legislation reference: #{inspect(violation)}"
+              )
+
+              acc
+
+            {:ok, legislation_id} ->
+              # Build offence attributes with legislation link
+              offence_attrs =
+                %{
+                  case_id: case_record.id,
+                  offence_description: violation[:offence_description],
+                  legislation_part: violation[:legislation_part],
+                  legislation_id: legislation_id,
+                  fine: violation[:fine],
+                  sequence_number: violation[:sequence_number]
+                }
+                # Filter out nil values
+                |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+                |> Map.new()
+
+              [offence_attrs | acc]
+
+            {:error, reason} ->
+              Logger.error(
+                "Failed to find/create legislation for EA violation: #{inspect(reason)}"
+              )
+
+              acc
+          end
         end)
+        |> Enum.reverse()
 
-      # Bulk create offences with legislation linkage
-      case Enforcement.bulk_create_offences(offences_data: offences_data) do
-        {:ok, _bulk_result} ->
-          Logger.info(
-            "Successfully created #{length(offences_data)} offences for EA case: #{case_record.regulator_id}"
-          )
+      # If no valid offences, return success with empty list
+      if offences_data == [] do
+        Logger.info(
+          "No offences with valid legislation found for EA case: #{case_record.regulator_id}"
+        )
 
-          {:ok, offences_data}
+        {:ok, []}
+      else
+        # Bulk create offences with legislation linkage
+        case Ash.bulk_create(offences_data, Enforcement.Offence, :create) do
+          %Ash.BulkResult{status: :success} = _bulk_result ->
+            Logger.info(
+              "Successfully created #{length(offences_data)} offences for EA case: #{case_record.regulator_id}"
+            )
 
-        {:error, error} ->
-          Logger.error(
-            "Failed to create offences for EA case #{case_record.regulator_id}: #{inspect(error)}"
-          )
+            {:ok, offences_data}
 
-          {:error, error}
+          %Ash.BulkResult{status: :error} = bulk_result ->
+            Logger.error(
+              "Failed to create offences for EA case #{case_record.regulator_id}: #{inspect(bulk_result.errors)}"
+            )
+
+            {:error, bulk_result.errors}
+        end
       end
     else
       # No violations to create

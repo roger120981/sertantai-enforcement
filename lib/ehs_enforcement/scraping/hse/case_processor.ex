@@ -188,45 +188,70 @@ defmodule EhsEnforcement.Scraping.Hse.CaseProcessor do
     # Parse all breaches and extract legislation
     parsed_breaches = BreachParser.parse_breaches(breach_data)
 
-    # Create offence records with legislation linking
+    # Create offence records with legislation linking, filtering out those without legislation
     offences_data =
-      Enum.map(parsed_breaches, fn parsed ->
+      Enum.reduce(parsed_breaches, [], fn parsed, acc ->
         # Find or create legislation for this breach
-        {:ok, legislation_id} =
-          LegislationMatcher.find_or_create_from_breach(
-            parsed.offence_description,
-            actor: actor
+        case LegislationMatcher.find_or_create_from_breach(
+               parsed.offence_description,
+               actor: actor
+             ) do
+          {:ok, nil} ->
+            Logger.warning(
+              "Skipping offence without legislation reference: #{String.slice(parsed.offence_description, 0..50)}..."
+            )
+
+            acc
+
+          {:ok, legislation_id} ->
+            # Build offence attributes
+            offence_attrs =
+              %{
+                case_id: case_record.id,
+                offence_description: parsed.offence_description,
+                legislation_part: parsed.legislation_part,
+                legislation_id: legislation_id,
+                fine: parsed.fine,
+                sequence_number: parsed.sequence_number
+              }
+              # Filter out nil values
+              |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+              |> Map.new()
+
+            [offence_attrs | acc]
+
+          {:error, reason} ->
+            Logger.error("Failed to find/create legislation for breach: #{inspect(reason)}")
+
+            acc
+        end
+      end)
+      |> Enum.reverse()
+
+    # If no valid offences, return success with empty list
+    if offences_data == [] do
+      Logger.info(
+        "No offences with valid legislation found for HSE case: #{case_record.regulator_id}"
+      )
+
+      {:ok, []}
+    else
+      # Bulk create offences
+      case Ash.bulk_create(offences_data, Enforcement.Offence, :create) do
+        %Ash.BulkResult{status: :success} = _bulk_result ->
+          Logger.info(
+            "Successfully created #{length(offences_data)} offences for HSE case: #{case_record.regulator_id}"
           )
 
-        # Build offence attributes
-        %{
-          case_id: case_record.id,
-          offence_description: parsed.offence_description,
-          legislation_part: parsed.legislation_part,
-          legislation_id: legislation_id,
-          fine: parsed.fine,
-          sequence_number: parsed.sequence_number
-        }
-        # Filter out nil values
-        |> Enum.reject(fn {_k, v} -> is_nil(v) end)
-        |> Map.new()
-      end)
+          {:ok, offences_data}
 
-    # Bulk create offences
-    case Enforcement.bulk_create_offences(offences_data: offences_data) do
-      {:ok, _bulk_result} ->
-        Logger.info(
-          "Successfully created #{length(offences_data)} offences for HSE case: #{case_record.regulator_id}"
-        )
+        %Ash.BulkResult{status: :error} = bulk_result ->
+          Logger.error(
+            "Failed to create offences for HSE case #{case_record.regulator_id}: #{inspect(bulk_result.errors)}"
+          )
 
-        {:ok, offences_data}
-
-      {:error, error} ->
-        Logger.error(
-          "Failed to create offences for HSE case #{case_record.regulator_id}: #{inspect(error)}"
-        )
-
-        {:error, error}
+          {:error, bulk_result.errors}
+      end
     end
   end
 
