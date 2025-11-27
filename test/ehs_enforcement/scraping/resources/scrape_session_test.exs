@@ -27,7 +27,7 @@ defmodule EhsEnforcement.Scraping.ScrapeSessionTest do
       {:ok, session} =
         Ash.create(ScrapeSession, %{
           session_id: "ea-test-#{System.unique_integer([:positive])}",
-          agency: :environment_agency,
+          agency: :ea,
           start_page: 1,
           max_pages: 1,
           database: "ea_enforcement",
@@ -37,7 +37,7 @@ defmodule EhsEnforcement.Scraping.ScrapeSessionTest do
           status: :running
         })
 
-      assert session.agency == :environment_agency
+      assert session.agency == :ea
       assert session.date_from == ~D[2024-01-01]
       assert session.date_to == ~D[2024-12-31]
       assert session.action_types == [:court_case, :caution]

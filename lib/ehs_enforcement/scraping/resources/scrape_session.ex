@@ -32,7 +32,7 @@ defmodule EhsEnforcement.Scraping.ScrapeSession do
     attribute :agency, :atom do
       allow_nil?(false)
       default(:hse)
-      constraints(one_of: [:hse, :environment_agency])
+      constraints(one_of: [:hse, :ea])
     end
 
     # HSE-specific parameters (page-based scraping)
