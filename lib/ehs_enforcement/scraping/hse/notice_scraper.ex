@@ -18,12 +18,20 @@ defmodule EhsEnforcement.Scraping.Hse.NoticeScraper do
   def get_hse_notices(page_number: page_number, country: country) do
     base_url = ~s|https://resources.hse.gov.uk|
 
-    # URL encode the country parameter to handle spaces
-    encoded_country = URI.encode_www_form(country)
-
+    # Build URL based on country filter
+    # HSE website doesn't recognize "All" as a valid country value
+    # So we omit the country filter parameters entirely when "All" is selected
     url =
-      base_url <>
-        ~s|/notices/notices/notice_list.asp?PN=#{page_number}&ST=N&CO=,AND&SN=F&EO==&SF=CTR&SV=#{encoded_country}&SO=DNIS|
+      if country == "All" do
+        # No country filter - returns all notices
+        base_url <> ~s|/notices/notices/notice_list.asp?PN=#{page_number}&ST=N&SO=DNIS|
+      else
+        # Filter by specific country (England, Scotland, Wales)
+        encoded_country = URI.encode_www_form(country)
+
+        base_url <>
+          ~s|/notices/notices/notice_list.asp?PN=#{page_number}&ST=N&CO=,AND&SN=F&EO==&SF=CTR&SV=#{encoded_country}&SO=DNIS|
+      end
 
     Logger.debug("Fetching HSE notices for #{country}, page #{page_number}")
 
@@ -94,7 +102,8 @@ defmodule EhsEnforcement.Scraping.Hse.NoticeScraper do
 
   defp parse_tr(body) do
     {:ok, document} = Floki.parse_document(body)
-    Floki.find(document, "tr")
+    rows = Floki.find(document, "tr")
+    rows
   end
 
   defp extract_td(notices) do
