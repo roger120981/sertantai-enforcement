@@ -106,30 +106,27 @@ defmodule EhsEnforcement.Scraping.Hse.NoticeScraper do
 
   defp extract_notices(notices, country) do
     Enum.reduce(notices, [], fn
+      # Match row with 6 TD elements (HSE notice list structure)
       [
-        {"td", [],
-         [
-           {"a",
-            [
-              {"title", _},
-              {"href", _}
-            ], [notice_number]}
-         ]},
-        {"td", [], [recipients_name]},
-        {"td", [], [notice_type]},
-        {"td", [], [issue_date]},
-        {"td", [], [local_authority]},
-        {"td", [], [sic]}
+        {"td", _, notice_number_content},
+        {"td", _, recipients_name_content},
+        {"td", _, notice_type_content},
+        {"td", _, issue_date_content},
+        {"td", _, local_authority_content},
+        {"td", _, sic_content}
       ],
       acc ->
+        # Use Floki.text/1 to extract text from any HTML structure
+        # This handles nested elements like <span>, <div>, etc.
         [
           %{
-            regulator_id: String.trim(notice_number),
-            offender_name: String.trim(recipients_name),
-            offence_action_type: String.trim(notice_type),
-            offence_action_date: EhsEnforcement.Utility.iso_date(issue_date),
-            offender_local_authority: String.trim(local_authority),
-            offender_sic: String.trim(sic),
+            regulator_id: Floki.text(notice_number_content) |> String.trim(),
+            offender_name: Floki.text(recipients_name_content) |> String.trim(),
+            offence_action_type: Floki.text(notice_type_content) |> String.trim(),
+            offence_action_date:
+              EhsEnforcement.Utility.iso_date(Floki.text(issue_date_content) |> String.trim()),
+            offender_local_authority: Floki.text(local_authority_content) |> String.trim(),
+            offender_sic: Floki.text(sic_content) |> String.trim(),
             offender_country: country
           }
           | acc
@@ -142,69 +139,75 @@ defmodule EhsEnforcement.Scraping.Hse.NoticeScraper do
 
   defp extract_notice_details(notice_details) do
     Enum.reduce(notice_details, %{}, fn
+      # Handle 2-column rows (label + value)
       [
-        {"td", _, _},
-        {"td", _, _},
-        {"td", _, ["HSE Directorate"]},
-        {"td", _, [regulator_function]}
+        {"td", _, label_content},
+        {"td", _, value_content}
       ],
       acc ->
-        Map.put(
-          acc,
-          :regulator_function,
-          EhsEnforcement.Utility.upcase_first_from_upcase_phrase(regulator_function)
-        )
+        label = Floki.text(label_content) |> String.trim()
+        value = Floki.text(value_content) |> String.trim()
 
+        case label do
+          "Description" ->
+            Map.put(acc, :offence_description, value)
+
+          "Main Activity" ->
+            Map.put(acc, :offender_main_activity, value)
+
+          "Industry" ->
+            Map.put(acc, :offender_industry, value)
+
+          "Result" ->
+            Map.put(acc, :offence_result, value)
+
+          _ ->
+            acc
+        end
+
+      # Handle 4-column rows (2 label-value pairs)
       [
-        {"td", _, ["Compliance Date"]},
-        {"td", _, [compliance_date]},
-        {"td", _, ["Revised Compliance Date"]},
-        {"td", _, [revised_compliance_date]}
+        {"td", _, label1_content},
+        {"td", _, value1_content},
+        {"td", _, label2_content},
+        {"td", _, value2_content}
       ],
       acc ->
+        label1 = Floki.text(label1_content) |> String.trim()
+        value1 = Floki.text(value1_content) |> String.trim()
+        label2 = Floki.text(label2_content) |> String.trim()
+        value2 = Floki.text(value2_content) |> String.trim()
+
+        acc =
+          case label1 do
+            "Compliance Date" ->
+              Map.put(acc, :offence_compliance_date, EhsEnforcement.Utility.iso_date(value1))
+
+            _ ->
+              acc
+          end
+
+        acc =
+          case label2 do
+            "HSE Directorate" ->
+              Map.put(
+                acc,
+                :regulator_function,
+                EhsEnforcement.Utility.upcase_first_from_upcase_phrase(value2)
+              )
+
+            "Revised Compliance Date" ->
+              Map.put(
+                acc,
+                :offence_revised_compliance_date,
+                EhsEnforcement.Utility.iso_date(value2)
+              )
+
+            _ ->
+              acc
+          end
+
         acc
-        |> Map.put(:offence_compliance_date, EhsEnforcement.Utility.iso_date(compliance_date))
-        |> Map.put(
-          :offence_revised_compliance_date,
-          EhsEnforcement.Utility.iso_date(revised_compliance_date)
-        )
-
-      [
-        {"td", _, ["Compliance Date"]},
-        {"td", _, [compliance_date]},
-        {"td", _, _},
-        {"td", _, _}
-      ],
-      acc ->
-        Map.put(acc, :offence_compliance_date, EhsEnforcement.Utility.iso_date(compliance_date))
-
-      [
-        {"td", _, ["Description"]},
-        {"td", _, [description]}
-      ],
-      acc ->
-        Map.put(acc, :offence_description, String.trim(description))
-
-      [
-        {"td", _, ["Main Activity"]},
-        {"td", _, [main_activity]}
-      ],
-      acc ->
-        Map.put(acc, :offender_main_activity, String.trim(main_activity))
-
-      [
-        {"td", _, ["Industry"]},
-        {"td", _, [industry]}
-      ],
-      acc ->
-        Map.put(acc, :offender_industry, String.trim(industry))
-
-      [
-        {"td", _, ["Result"]},
-        {"td", _, [result]}
-      ],
-      acc ->
-        Map.put(acc, :offence_result, String.trim(result))
 
       _notice, acc ->
         acc
@@ -217,11 +220,12 @@ defmodule EhsEnforcement.Scraping.Hse.NoticeScraper do
         {"td", _, _},
         {"td", _, _},
         {"td", _, _},
-        {"td", _, [breach]},
+        {"td", _, breach_content},
         {_, _, _}
       ],
       acc ->
-        [String.trim(breach) | acc]
+        breach_text = Floki.text(breach_content) |> String.trim()
+        [breach_text | acc]
 
       _breach, acc ->
         acc
