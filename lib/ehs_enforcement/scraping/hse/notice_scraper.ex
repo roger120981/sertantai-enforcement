@@ -99,7 +99,9 @@ defmodule EhsEnforcement.Scraping.Hse.NoticeScraper do
 
   defp extract_td(notices) do
     Enum.reduce(notices, [], fn
-      {"tr", [], notice}, acc -> [notice | acc]
+      # Match TR elements with ANY attributes (or no attributes)
+      # HSE uses <tr class="odd"> and <tr class="even"> for row styling
+      {"tr", _, notice}, acc -> [notice | acc]
       _, acc -> acc
     end)
   end
