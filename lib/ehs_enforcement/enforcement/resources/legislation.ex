@@ -21,14 +21,24 @@ defmodule EhsEnforcement.Enforcement.Legislation do
     repo(EhsEnforcement.Repo)
 
     custom_indexes do
-      # Unique constraint for legislation identification
+      # Unique constraint for legislation.gov.uk identification (Year + Number + Type Code)
+      index([:legislation_year, :legislation_number, :legislation_type_code],
+        name: "legislation_gov_uk_unique",
+        unique: true,
+        where:
+          "legislation_year IS NOT NULL AND legislation_number IS NOT NULL AND legislation_type_code IS NOT NULL"
+      )
+
+      # Unique constraint for legacy title-based identification (for scraped data without legislation.gov.uk codes)
       index([:legislation_title, :legislation_year, :legislation_number],
         name: "legislation_title_year_number_unique",
-        unique: true
+        unique: true,
+        where: "legislation_type_code IS NULL"
       )
 
       # Performance indexes for filtering and search
       index([:legislation_type], name: "legislation_type_index")
+      index([:legislation_type_code], name: "legislation_type_code_index")
       index([:legislation_year], name: "legislation_year_index")
 
       # pg_trgm GIN index for fuzzy text search on legislation titles
@@ -49,16 +59,23 @@ defmodule EhsEnforcement.Enforcement.Legislation do
       constraints(min: 1800, max: 2100)
     end
 
-    attribute :legislation_number, :integer do
-      description "Official number/chapter of the legislation (e.g., 33)"
-      constraints(min: 1)
+    attribute :legislation_number, :string do
+      description "Official number/chapter of the legislation (can be alphanumeric for old laws, e.g., '33', 'c.33')"
     end
 
     attribute :legislation_type, :atom do
       allow_nil?(false)
-      description "Type of legislation"
-      constraints(one_of: [:act, :regulation, :order, :acop])
+      description "Type of legislation (high-level categorization)"
+      constraints(one_of: [:act, :regulation, :order, :acop, :measure, :rule, :scheme])
       default(:act)
+    end
+
+    attribute :legislation_type_code, :string do
+      description "legislation.gov.uk type code (e.g., 'ukpga', 'uksi', 'ukla', 'asp', 'anaw', 'ssi', 'wsi')"
+    end
+
+    attribute :legislation_url, :string do
+      description "Canonical URL from legislation.gov.uk"
     end
 
     create_timestamp(:created_at)
@@ -70,13 +87,17 @@ defmodule EhsEnforcement.Enforcement.Legislation do
   end
 
   identities do
-    # Prevent duplicates even with nil values
-    identity :unique_legislation, [:legislation_title, :legislation_year, :legislation_number] do
-      # Treat multiple nil values as duplicates
+    # Primary identity for legislation.gov.uk data (Year + Number + Type Code)
+    identity :unique_gov_uk, [:legislation_year, :legislation_number, :legislation_type_code] do
       nils_distinct?(false)
     end
 
-    # Secondary identity for title + year only (useful for fuzzy matching)
+    # Secondary identity for legacy scraped data (Title + Year + Number)
+    identity :unique_legislation, [:legislation_title, :legislation_year, :legislation_number] do
+      nils_distinct?(false)
+    end
+
+    # Tertiary identity for title + year only (useful for fuzzy matching)
     identity :unique_title_year, [:legislation_title, :legislation_year] do
       nils_distinct?(false)
     end
@@ -87,7 +108,15 @@ defmodule EhsEnforcement.Enforcement.Legislation do
 
     create :create do
       primary?(true)
-      accept([:legislation_title, :legislation_year, :legislation_number, :legislation_type])
+
+      accept([
+        :legislation_title,
+        :legislation_year,
+        :legislation_number,
+        :legislation_type,
+        :legislation_type_code,
+        :legislation_url
+      ])
 
       validate(present(:legislation_title))
       validate(present(:legislation_type))
@@ -138,26 +167,35 @@ defmodule EhsEnforcement.Enforcement.Legislation do
         end
       end)
 
-      # Validate number if provided
+      # Validate number if provided (now accepts alphanumeric strings)
       validate(fn changeset, _context ->
         case Ash.Changeset.get_attribute(changeset, :legislation_number) do
           nil ->
             :ok
 
-          number when is_integer(number) and number > 0 ->
+          number when is_binary(number) and byte_size(number) > 0 ->
             :ok
 
           invalid_number ->
             {:error,
              field: :legislation_number,
-             message: "Number must be a positive integer, got: #{invalid_number}"}
+             message: "Number must be a non-empty string, got: #{invalid_number}"}
         end
       end)
     end
 
     update :update do
       primary?(true)
-      accept([:legislation_title, :legislation_year, :legislation_number, :legislation_type])
+
+      accept([
+        :legislation_title,
+        :legislation_year,
+        :legislation_number,
+        :legislation_type,
+        :legislation_type_code,
+        :legislation_url
+      ])
+
       require_atomic?(false)
 
       # Normalize title on update as well
