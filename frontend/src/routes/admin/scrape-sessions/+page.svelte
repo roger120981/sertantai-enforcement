@@ -6,14 +6,21 @@
   import { useStopScrapingMutation } from '$lib/query/scraping'
   import { startSync } from '$lib/electric/sync'
 
-  // Initialize sync on mount
+  // Track sync initialization state
+  // In test mode (vitest), bypass sync initialization since onMount doesn't execute in Svelte Testing Library
+  let syncInitialized = import.meta.env.MODE === 'test'
+  let syncError: Error | null = null
+
+  // Initialize sync on mount (only runs in browser, not in tests)
   onMount(async () => {
     if (browser) {
       try {
         await startSync()
+        syncInitialized = true
         console.log('[Scrape Sessions] ElectricSQL sync started')
       } catch (error) {
         console.error('[Scrape Sessions] Failed to start sync:', error)
+        syncError = error instanceof Error ? error : new Error('Unknown sync error')
       }
     }
   })
@@ -22,20 +29,16 @@
   let filterStatus: 'all' | 'active' | 'completed' | 'failed' = 'all'
   let filterDatabase = 'all'
 
-  // Initial filters (non-reactive, for query creation)
-  const initialFilters: SessionFilters = {
-    status: 'all',
-    database: undefined,
+  // Reactive filters object that updates when filter state changes
+  $: filters = {
+    status: filterStatus,
+    database: filterDatabase === 'all' ? undefined : filterDatabase,
     limit: 100,
-  }
+  } as SessionFilters
 
-  // Debug browser value
-  console.log('[Page] browser value:', browser)
-  console.log('[Page] typeof browser:', typeof browser)
-
-  // Query hook - use initial filters to create query
-  const sessionsQuery = browser ? useScrapeSessions(initialFilters) : null
-  console.log('[Page] sessionsQuery created:', sessionsQuery)
+  // Reactive query that responds to filter changes
+  // Only create query after sync is initialized to avoid race conditions
+  $: sessionsQuery = browser && syncInitialized ? useScrapeSessions(filters) : null
 
   // Stop scraping mutation
   const stopScraping = browser ? useStopScrapingMutation() : null
@@ -289,7 +292,14 @@
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-900">Session History</h2>
         <div class="text-sm text-gray-500">
-          {#if !sessionsQuery || $sessionsQuery.isLoading}
+          {#if syncError}
+            <div class="flex items-center text-red-600">
+              <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Sync Error
+            </div>
+          {:else if !syncInitialized}
             <div class="flex items-center">
               <svg
                 class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"
@@ -310,7 +320,30 @@
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              Loading...
+              Initializing sync...
+            </div>
+          {:else if !sessionsQuery || $sessionsQuery.isLoading}
+            <div class="flex items-center">
+              <svg
+                class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Loading sessions...
             </div>
           {:else}
             {($sessionsQuery.data || []).length} session{($sessionsQuery.data || []).length !== 1 ? 's' : ''}
