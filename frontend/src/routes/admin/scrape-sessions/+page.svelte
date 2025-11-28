@@ -4,44 +4,52 @@
   import { useScrapeSessions } from '$lib/query/scrapeSessions'
   import type { SessionFilters } from '$lib/query/scrapeSessions'
   import { useStopScrapingMutation } from '$lib/query/scraping'
-  import { startSync } from '$lib/electric/sync'
-
-  // Track sync initialization state
-  // In test mode (vitest), bypass sync initialization since onMount doesn't execute in Svelte Testing Library
-  let syncInitialized = import.meta.env.MODE === 'test'
-  let syncError: Error | null = null
-
-  // Initialize sync on mount (only runs in browser, not in tests)
-  onMount(async () => {
-    if (browser) {
-      try {
-        await startSync()
-        syncInitialized = true
-        console.log('[Scrape Sessions] ElectricSQL sync started')
-      } catch (error) {
-        console.error('[Scrape Sessions] Failed to start sync:', error)
-        syncError = error instanceof Error ? error : new Error('Unknown sync error')
-      }
-    }
-  })
+  import { syncScrapeSessions, checkElectricHealth } from '$lib/electric/sync'
 
   // Filter state
   let filterStatus: 'all' | 'active' | 'completed' | 'failed' = 'all'
   let filterDatabase = 'all'
 
-  // Reactive filters object that updates when filter state changes
+  // Reactive filters object
   $: filters = {
     status: filterStatus,
     database: filterDatabase === 'all' ? undefined : filterDatabase,
     limit: 100,
   } as SessionFilters
 
-  // Reactive query that responds to filter changes
-  // Only create query after sync is initialized to avoid race conditions
-  $: sessionsQuery = browser && syncInitialized ? useScrapeSessions(filters) : null
+  // TanStack Query for sessions data (only in browser, not SSR)
+  const sessionsQuery = browser ? useScrapeSessions(filters) : null
 
   // Stop scraping mutation
   const stopScraping = browser ? useStopScrapingMutation() : null
+
+  // State
+  let loading = true
+  let error: string | null = null
+  let electricHealthy = false
+
+  // Initialize sync on mount
+  onMount(async () => {
+    try {
+      electricHealthy = await checkElectricHealth()
+      console.log('[Scrape Sessions] Electric health:', electricHealthy)
+
+      if (!electricHealthy) {
+        console.warn('[Scrape Sessions] Electric service unavailable, working offline')
+      }
+
+      if (electricHealthy) {
+        await syncScrapeSessions()
+        console.log('[Scrape Sessions] Sync started')
+      }
+
+      loading = false
+    } catch (err) {
+      console.error('[Scrape Sessions] Initialization error:', err)
+      error = err instanceof Error ? err.message : 'Unknown error'
+      loading = false
+    }
+  })
 
   // Track which session is being stopped (to show loading state on specific button)
   let stoppingSessionId: string | null = null
@@ -292,14 +300,7 @@
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-gray-900">Session History</h2>
         <div class="text-sm text-gray-500">
-          {#if syncError}
-            <div class="flex items-center text-red-600">
-              <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Sync Error
-            </div>
-          {:else if !syncInitialized}
+          {#if loading}
             <div class="flex items-center">
               <svg
                 class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"
