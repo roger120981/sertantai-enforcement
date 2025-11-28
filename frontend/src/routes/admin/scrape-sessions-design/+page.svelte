@@ -3,19 +3,7 @@
   import { browser } from '$app/environment'
   import { useScrapeSessions } from '$lib/query/scrapeSessions'
   import type { SessionFilters } from '$lib/query/scrapeSessions'
-  import { startSync } from '$lib/electric/sync'
-
-  // Initialize sync on mount
-  onMount(async () => {
-    if (browser) {
-      try {
-        await startSync()
-        console.log('[Scrape Sessions Design] ElectricSQL sync started')
-      } catch (error) {
-        console.error('[Scrape Sessions Design] Failed to start sync:', error)
-      }
-    }
-  })
+  import { syncScrapeSessions, checkElectricHealth } from '$lib/electric/sync'
 
   // Filter state
   let filterStatus: 'all' | 'active' | 'completed' | 'failed' = 'all'
@@ -28,12 +16,33 @@
     limit: 100,
   } satisfies SessionFilters
 
-  // Query hook
+  // Module-level const query (NOT reactive $:)
+  // TanStack Query handles reactivity via queryKey changes
   const sessions = browser ? useScrapeSessions(filters) : null
+
+  // Loading/error state for sync initialization
+  let loading = true
+  let error: string | null = null
+  let electricHealthy = false
+
+  // Initialize SPECIFIC sync on mount
+  onMount(async () => {
+    try {
+      electricHealthy = await checkElectricHealth()
+
+      if (electricHealthy) {
+        await syncScrapeSessions()  // ✅ Sync ONLY sessions table
+      }
+
+      loading = false
+    } catch (err) {
+      error = err instanceof Error ? err.message : 'Unknown error'
+      loading = false
+    }
+  })
 
   // Computed values
   $: sessionsList = $sessions?.data || []
-  $: loading = $sessions?.isLoading || false
 
   // Clear filters
   function handleClearFilters() {
@@ -254,7 +263,32 @@
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              Loading...
+              Initializing sync...
+            </div>
+          {:else if error}
+            <div class="text-red-600">Error: {error}</div>
+          {:else if $sessions?.isLoading}
+            <div class="flex items-center">
+              <svg
+                class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Loading data...
             </div>
           {:else}
             {sessionsList.length} session{sessionsList.length !== 1 ? 's' : ''}
