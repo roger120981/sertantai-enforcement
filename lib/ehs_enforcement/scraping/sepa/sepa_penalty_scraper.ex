@@ -349,10 +349,9 @@ defmodule EhsEnforcement.Scraping.Sepa.SepaPenaltyScraper do
     end
   end
 
-  defp normalize_text(nil), do: nil
   defp normalize_text(""), do: nil
 
-  defp normalize_text(text) do
+  defp normalize_text(text) when is_binary(text) do
     text
     |> String.replace(~r/\s+/, " ")
     |> String.trim()
