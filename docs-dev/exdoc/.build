@@ -1,4 +1,9 @@
 404.html
+EhsEnforcement.AI.Client.Mock.html
+EhsEnforcement.AI.Client.OpenAI.html
+EhsEnforcement.AI.Client.RunPod.html
+EhsEnforcement.AI.Client.html
+EhsEnforcement.AI.EnrichmentService.html
 EhsEnforcement.Accounts.Token.html
 EhsEnforcement.Accounts.User.html
 EhsEnforcement.Accounts.UserIdentity.html
@@ -24,6 +29,7 @@ EhsEnforcement.Consent.Plug.html
 EhsEnforcement.Consent.Storage.html
 EhsEnforcement.Consent.html
 EhsEnforcement.Enforcement.Agency.html
+EhsEnforcement.Enforcement.BreachParser.html
 EhsEnforcement.Enforcement.Case.AshOban.Scheduler.ScheduledScrapeEa.html
 EhsEnforcement.Enforcement.Case.AshOban.Scheduler.ScheduledScrapeHse.html
 EhsEnforcement.Enforcement.Case.AshOban.Scheduler.WeeklyScrapeDeep.html
@@ -36,6 +42,7 @@ EhsEnforcement.Enforcement.DuplicateDetector.html
 EhsEnforcement.Enforcement.Enrichment.html
 EhsEnforcement.Enforcement.EnrichmentValidation.html
 EhsEnforcement.Enforcement.Legislation.html
+EhsEnforcement.Enforcement.LegislationMatcher.html
 EhsEnforcement.Enforcement.Metrics.AshOban.Scheduler.WeeklyMetricsRefresh.html
 EhsEnforcement.Enforcement.Metrics.AshOban.Worker.WeeklyMetricsRefresh.html
 EhsEnforcement.Enforcement.Metrics.html
@@ -68,7 +75,9 @@ EhsEnforcement.RetryLogic.html
 EhsEnforcement.Scraping.Agencies.Ea.html
 EhsEnforcement.Scraping.Agencies.Hse.html
 EhsEnforcement.Scraping.AgencyBehavior.html
+EhsEnforcement.Scraping.Api.EaCaseCoordinator.html
 EhsEnforcement.Scraping.Api.EaNoticeCoordinator.html
+EhsEnforcement.Scraping.Api.HseCaseCoordinator.html
 EhsEnforcement.Scraping.Api.HseNoticeCoordinator.html
 EhsEnforcement.Scraping.Ea.CaseProcessor.ProcessedEaCase.html
 EhsEnforcement.Scraping.Ea.CaseProcessor.html
@@ -116,6 +125,7 @@ EhsEnforcementWeb.Api.DashboardController.html
 EhsEnforcementWeb.Api.DuplicatesController.html
 EhsEnforcementWeb.Api.MatchReviewsController.html
 EhsEnforcementWeb.Api.NoticesController.html
+EhsEnforcementWeb.Api.OffencesController.html
 EhsEnforcementWeb.Api.OffendersController.html
 EhsEnforcementWeb.Api.ScrapingController.html
 EhsEnforcementWeb.AuthController.html
@@ -181,8 +191,8 @@ dist/lato-latin-700-normal-2XVSBPG4.woff2
 dist/lato-latin-ext-400-normal-N27NCBWW.woff2
 dist/lato-latin-ext-700-normal-Q2L5DVMW.woff2
 dist/remixicon-QPNJX265.woff2
-dist/search_data-A4B9ABD5.js
-dist/sidebar_items-C3665938.js
+dist/search_data-5F663474.js
+dist/sidebar_items-17F6BAF6.js
 index.html
 readme.html
 search.html

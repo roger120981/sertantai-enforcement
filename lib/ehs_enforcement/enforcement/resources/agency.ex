@@ -17,7 +17,31 @@ defmodule EhsEnforcement.Enforcement.Agency do
 
     attribute :code, :atom do
       allow_nil?(false)
-      constraints(one_of: [:hse, :onr, :orr, :ea])
+      # UK Safety Regulatory Agencies - see docs-dev/research/regulatory-agency-overview.md
+      constraints(
+        one_of: [
+          # Implemented
+          :hse,
+          :ea,
+          :sepa,
+          # High priority
+          :nrw,
+          # Medium priority
+          :orr,
+          :mca,
+          :caa,
+          :cqc,
+          :dwi,
+          :opss,
+          :gc,
+          # Lower priority
+          :onr,
+          :fra,
+          :niea,
+          :fsa,
+          :ico
+        ]
+      )
     end
 
     attribute(:name, :string, allow_nil?: false)

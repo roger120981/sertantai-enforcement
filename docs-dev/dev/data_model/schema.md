@@ -132,7 +132,27 @@ The EHS Enforcement application uses PostgreSQL as its primary database with Ash
 
 **Ash Identity**: `unique_code` on `[:code]`
 
-**Ash Constraints**: `code` must be one of `[:hse, :onr, :orr, :ea]`
+**Ash Constraints**: `code` must be one of `[:hse, :ea, :sepa, :nrw, :orr, :mca, :caa, :cqc, :dwi, :opss, :gc, :onr, :fra, :niea, :fsa, :ico]`
+
+**Agency Codes Reference**:
+| Code | Agency | Status |
+|------|--------|--------|
+| `hse` | Health and Safety Executive | Implemented |
+| `ea` | Environment Agency | Implemented |
+| `sepa` | Scottish Environment Protection Agency | In Progress |
+| `nrw` | Natural Resources Wales | Planned |
+| `orr` | Office of Rail and Road | Researched |
+| `mca` | Maritime and Coastguard Agency | Researched |
+| `caa` | Civil Aviation Authority | Planned |
+| `cqc` | Care Quality Commission | Planned |
+| `dwi` | Drinking Water Inspectorate | Planned |
+| `opss` | Office for Product Safety and Standards | Researched |
+| `gc` | Gambling Commission | Planned |
+| `onr` | Office for Nuclear Regulation | Planned |
+| `fra` | Fire and Rescue Authorities (NFCC) | Researched |
+| `niea` | Northern Ireland Environment Agency | Planned |
+| `fsa` | Food Standards Agency | Planned |
+| `ico` | Information Commissioner's Office | Planned |
 
 **Relationships**:
 - `has_many :cases` → `cases.agency_id`
@@ -298,6 +318,7 @@ The EHS Enforcement application uses PostgreSQL as its primary database with Ash
 | `legal_act` | `text` | NULLABLE | EA legal act citation |
 | `legal_section` | `text` | NULLABLE | EA legal section reference |
 | `regulator_function` | `text` | NULLABLE | EA regulator function |
+| `penalty_amount` | `decimal` | NULLABLE | SEPA monetary penalty amount (FMP/VMP) |
 | `inserted_at` | `timestamp` | NOT NULL | Record creation time |
 | `updated_at` | `timestamp` | NOT NULL | Record update time |
 
@@ -314,9 +335,10 @@ The EHS Enforcement application uses PostgreSQL as its primary database with Ash
 - `notices_regulator_id_gin_trgm` on `regulator_id` (trigram similarity search)
 - `notices_notice_body_gin_trgm` on `notice_body` (trigram similarity search)
 
-**Schema Changes (Aug-Oct 2025)**:
-- Added EA-specific fields for Environment Agency enforcement notices
-- Re-added `offence_breaches` field for backward compatibility with processing
+**Schema Changes (Aug-Nov 2025)**:
+- Added EA-specific fields for Environment Agency enforcement notices (Oct 2025)
+- Re-added `offence_breaches` field for backward compatibility with processing (Oct 2025)
+- Added `penalty_amount` field for SEPA monetary penalties (Nov 2025)
 
 **Deduplication History (Nov 2025)**:
 - **Issue #4**: Removed 1,693 duplicate notices from production database

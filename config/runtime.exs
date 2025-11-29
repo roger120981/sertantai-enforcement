@@ -66,6 +66,20 @@ if config_env() == :dev do
 
   # Companies House API configuration
   config :ehs_enforcement, :companies_house, api_key: System.get_env("COMPANIES_HOUSE_API_KEY")
+
+  # AI Enrichment Service configuration
+  # Supports multiple providers: :runpod, :openai, :mock
+  config :ehs_enforcement, :ai_enrichment,
+    provider: String.to_atom(System.get_env("AI_ENRICHMENT_PROVIDER") || "mock"),
+    # RunPod configuration (OpenAI-compatible API)
+    runpod_api_key: System.get_env("RUNPOD_API_KEY"),
+    runpod_endpoint: System.get_env("RUNPOD_ENDPOINT"),
+    # OpenAI configuration (alternative provider)
+    openai_api_key: System.get_env("OPENAI_API_KEY"),
+    openai_model: System.get_env("OPENAI_MODEL") || "gpt-4-turbo",
+    # Shared settings
+    timeout_ms: String.to_integer(System.get_env("AI_ENRICHMENT_TIMEOUT_MS") || "60000"),
+    max_retries: String.to_integer(System.get_env("AI_ENRICHMENT_MAX_RETRIES") || "3")
 end
 
 # ## Using releases
@@ -165,6 +179,20 @@ if config_env() == :prod do
 
   # Companies House API configuration for production
   config :ehs_enforcement, :companies_house, api_key: System.get_env("COMPANIES_HOUSE_API_KEY")
+
+  # AI Enrichment Service configuration for production
+  # Requires either RunPod or OpenAI API key to be set
+  config :ehs_enforcement, :ai_enrichment,
+    provider: String.to_atom(System.get_env("AI_ENRICHMENT_PROVIDER") || "runpod"),
+    # RunPod configuration (OpenAI-compatible API)
+    runpod_api_key: System.get_env("RUNPOD_API_KEY"),
+    runpod_endpoint: System.get_env("RUNPOD_ENDPOINT"),
+    # OpenAI configuration (alternative provider)
+    openai_api_key: System.get_env("OPENAI_API_KEY"),
+    openai_model: System.get_env("OPENAI_MODEL") || "gpt-4-turbo",
+    # Shared settings
+    timeout_ms: String.to_integer(System.get_env("AI_ENRICHMENT_TIMEOUT_MS") || "60000"),
+    max_retries: String.to_integer(System.get_env("AI_ENRICHMENT_MAX_RETRIES") || "3")
 
   # ## SSL Support
   #

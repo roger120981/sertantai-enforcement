@@ -224,8 +224,7 @@ defmodule EhsEnforcement.Enforcement.Enrichment do
         cond do
           case_id && notice_id ->
             {:error,
-             field: :base,
-             message: "Cannot enrich both case and notice - must choose one parent"}
+             field: :base, message: "Cannot enrich both case and notice - must choose one parent"}
 
           case_id || notice_id ->
             :ok
@@ -250,8 +249,7 @@ defmodule EhsEnforcement.Enforcement.Enrichment do
         if has_content do
           :ok
         else
-          {:error,
-           field: :base, message: "Enrichment must contain at least one enrichment field"}
+          {:error, field: :base, message: "Enrichment must contain at least one enrichment field"}
         end
       end)
     end

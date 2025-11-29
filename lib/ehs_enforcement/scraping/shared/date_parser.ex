@@ -93,6 +93,38 @@ defmodule EhsEnforcement.Scraping.Shared.DateParser do
         build_date(year, month, day)
 
       _ ->
+        try_parse_long_format(date_string)
+    end
+  end
+
+  @month_map %{
+    "january" => 1,
+    "february" => 2,
+    "march" => 3,
+    "april" => 4,
+    "may" => 5,
+    "june" => 6,
+    "july" => 7,
+    "august" => 8,
+    "september" => 9,
+    "october" => 10,
+    "november" => 11,
+    "december" => 12
+  }
+
+  defp try_parse_long_format(date_string) do
+    # Try long format: "16 July 2025", "9 January 2025"
+    case Regex.run(~r/^(\d{1,2})\s+(\w+)\s+(\d{4})$/i, String.trim(date_string)) do
+      [_, day, month_name, year] ->
+        month = Map.get(@month_map, String.downcase(month_name))
+
+        if month do
+          build_date(year, Integer.to_string(month), day)
+        else
+          nil
+        end
+
+      _ ->
         nil
     end
   end

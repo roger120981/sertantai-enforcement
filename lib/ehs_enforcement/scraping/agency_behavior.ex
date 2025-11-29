@@ -17,17 +17,17 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
 
       defmodule EhsEnforcement.Scraping.Agencies.Hse do
         @behaviour EhsEnforcement.Scraping.AgencyBehavior
-        
+
         @impl true
         def validate_params(opts) do
           # HSE-specific validation (requires start_page, end_page, database)
         end
-        
+
         @impl true
         def start_scraping(validated_params, config) do
           # HSE-specific scraping logic using page-based iteration
         end
-        
+
         @impl true
         def process_results(session_results) do
           # Process HSE results for unified return format
@@ -39,7 +39,7 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
       def start_scraping_session(opts) do
         agency = Keyword.get(opts, :agency, :hse)
         agency_module = get_agency_module(agency)
-        
+
         with {:ok, validated_params} <- agency_module.validate_params(opts),
              config <- load_scraping_config(opts),
              {:ok, results} <- agency_module.start_scraping(validated_params, config) do
@@ -69,8 +69,8 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
       # HSE validation
       iex> Hse.validate_params([start_page: 1, end_page: 5, database: "convictions"])
       {:ok, %{start_page: 1, end_page: 5, database: "convictions", ...}}
-      
-      # EA validation  
+
+      # EA validation
       iex> Ea.validate_params([date_from: ~D[2024-01-01], date_to: ~D[2024-01-31]])
       {:ok, %{date_from: ~D[2024-01-01], date_to: ~D[2024-01-31], ...}}
   """
@@ -145,12 +145,13 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
 
       iex> get_agency_module(:hse)
       EhsEnforcement.Scraping.Agencies.Hse
-      
+
       iex> get_agency_module(:ea)
       EhsEnforcement.Scraping.Agencies.Ea
   """
   def get_agency_module(:hse), do: EhsEnforcement.Scraping.Agencies.Hse
   def get_agency_module(:ea), do: EhsEnforcement.Scraping.Agencies.Ea
+  def get_agency_module(:sepa), do: EhsEnforcement.Scraping.Agencies.Sepa
   # Alias for backward compatibility
   def get_agency_module(:environment_agency), do: EhsEnforcement.Scraping.Agencies.Ea
 
@@ -158,7 +159,7 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
     raise ArgumentError, """
     Unsupported agency: #{inspect(agency)}
 
-    Supported agencies: :hse, :ea, :environment_agency (alias for :ea)
+    Supported agencies: :hse, :ea, :environment_agency (alias for :ea), :sepa
 
     To add support for a new agency, create a module implementing the
     EhsEnforcement.Scraping.AgencyBehavior and add it to get_agency_module/1.
@@ -186,7 +187,7 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
 
       iex> scraping_enabled?(:hse, :manual, config)
       true
-      
+
       iex> scraping_enabled?(:ea, :scheduled, config)
       false
   """

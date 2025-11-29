@@ -259,6 +259,67 @@ end
 - **MCP configuration** is in project-specific `mcpServers.json` file
 - **Other Phoenix projects** use different ports (Sertantai: 4000, etc.) to avoid conflicts
 
+## ⚠️ AI DEVELOPMENT RULES
+
+**Before working on ANY AI-related features, read the AI skill:**
+- **[.claude/skills/runpod-ai/SKILLS.md](.claude/skills/runpod-ai/SKILLS.md)** - RunPod AI integration patterns
+
+### AI Architecture Overview
+
+Two AI services exist in this application:
+
+| Service | Purpose | Provider | Module |
+|---------|---------|----------|--------|
+| NL Query | Natural language → TableKit filters | Ollama (Phi3) | `NLQueryController` |
+| Enrichment | Case/Notice contextual enrichment | RunPod/OpenAI | `AI.EnrichmentService` |
+
+### AI Development Checklist
+
+**Before implementing ANY AI feature:**
+1. ✅ Read `.claude/skills/runpod-ai/SKILLS.md` for patterns and conventions
+2. ✅ Use `AI.Client` behaviour for new AI services (not direct HTTP calls)
+3. ✅ Add configuration to `config/runtime.exs` following existing patterns
+4. ✅ Create tests using the Mock adapter (default in test environment)
+5. ✅ Update documentation in `docs-dev/ai/` when adding new AI features
+
+### AI Documentation Requirements
+
+**When modifying AI features, keep these files in sync:**
+- `docs-dev/ai/README.md` - Architecture overview and service comparison
+- `docs-dev/ai/nl-query.md` - NL Query service details
+- `docs-dev/ai/enrichment.md` - Enrichment service details
+- `docs-dev/ai/prompts.md` - System prompts and prompt engineering
+- `.claude/skills/runpod-ai/SKILLS.md` - Development patterns and troubleshooting
+
+### AI Client Pattern
+
+**ALWAYS use the AI.Client behaviour for new AI services:**
+
+```elixir
+# Get configured client (respects AI_ENRICHMENT_PROVIDER env var)
+client = EhsEnforcement.AI.Client.get_client()
+
+# Make completion request
+{:ok, response} = client.complete([
+  %{role: "system", content: "System prompt here"},
+  %{role: "user", content: "User input here"}
+], model: "meta-llama/llama-3.3-70b-instruct")
+```
+
+**NEVER make direct HTTP calls to AI endpoints** - always use the client abstraction.
+
+### Environment Variables
+
+```bash
+# NL Query (Ollama)
+OLLAMA_URL=https://your-runpod-endpoint.proxy.runpod.net
+
+# Enrichment Service
+AI_ENRICHMENT_PROVIDER=runpod    # or: openai, mock
+RUNPOD_API_KEY=your-api-key
+RUNPOD_ENDPOINT=https://api.runpod.ai/v2/your-endpoint/openai/v1
+```
+
 <!-- usage-rules-start -->
 <!-- usage-rules-header -->
 # Usage Rules

@@ -211,9 +211,13 @@ defmodule EhsEnforcement.Scraping.Hse.NoticeProcessor do
     # Attempt to match Companies House registration number
     case OffenderBuilder.match_companies_house_number(base_attrs) do
       {:ok, enhanced_attrs, :needs_review, candidates} ->
-        # Medium confidence match - store review data for later
-        # Return attrs with review metadata attached
-        Map.put(enhanced_attrs, :__review_candidates__, candidates)
+        # Medium confidence match - log candidates for manual review
+        # TODO: Store review candidates in a separate review table
+        Logger.info(
+          "Medium confidence Companies House match for #{enhanced_attrs.name}: #{length(candidates)} candidates found"
+        )
+
+        enhanced_attrs
 
       {:ok, enhanced_attrs} ->
         # High confidence match or no match

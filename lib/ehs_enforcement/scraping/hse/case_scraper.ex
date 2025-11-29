@@ -281,19 +281,19 @@ defmodule EhsEnforcement.Scraping.Hse.CaseScraper do
 
     Enum.reduce(rows, [], fn
       [
-        {"td", _, [{"a", [_, _], [regulator_id]}]},
-        {"td", _, [offender_name]},
-        {"td", _, [offence_action_date]},
-        {"td", _, [offender_local_authority]},
-        {"td", _, [offender_main_activity]}
+        {"td", _, regulator_id_content},
+        {"td", _, offender_name_content},
+        {"td", _, offence_action_date_content},
+        {"td", _, offender_local_authority_content},
+        {"td", _, offender_main_activity_content}
       ],
       acc ->
         case_data = %ScrapedCase{
-          regulator_id: String.trim(regulator_id),
-          offender_name: String.trim(offender_name),
-          offence_action_date: Utility.iso_date(offence_action_date),
-          offender_local_authority: String.trim(offender_local_authority),
-          offender_main_activity: String.trim(offender_main_activity),
+          regulator_id: Floki.text(regulator_id_content) |> String.trim(),
+          offender_name: Floki.text(offender_name_content) |> String.trim(),
+          offence_action_date: Utility.iso_date(Floki.text(offence_action_date_content)),
+          offender_local_authority: Floki.text(offender_local_authority_content) |> String.trim(),
+          offender_main_activity: Floki.text(offender_main_activity_content) |> String.trim(),
           page_number: page_number,
           scrape_timestamp: timestamp
         }
@@ -357,46 +357,59 @@ defmodule EhsEnforcement.Scraping.Hse.CaseScraper do
 
   defp extract_case_details_from_rows(rows, database) do
     Enum.reduce(rows, %{}, fn
-      # HSE Directorate and function
+      # 4-column patterns
       [
-        {"td", _, _},
-        {"td", _, _},
-        {"td", _, [{_, _, ["HSE Directorate"]}]},
-        {"td", _, [regulator_function]}
+        {"td", _, cell1_content},
+        {"td", _, cell2_content},
+        {"td", _, cell3_content},
+        {"td", _, cell4_content}
       ],
       acc ->
-        Map.merge(acc, %{
-          regulator_function: Utility.upcase_first_from_upcase_phrase(regulator_function)
-        })
+        # Extract text from all cells
+        text1 = Floki.text(cell1_content) |> String.trim()
+        text2 = Floki.text(cell2_content) |> String.trim()
+        text3 = Floki.text(cell3_content) |> String.trim()
+        text4 = Floki.text(cell4_content) |> String.trim()
 
-      # Main Activity
-      [
-        {"td", _, [{_, _, ["Main Activity"]}]},
-        {"td", _, [offender_main_activity]}
-      ],
-      acc ->
-        Map.put(acc, :offender_main_activity, offender_main_activity)
+        # Check if this is a label-value pair in columns 3-4 (cells 1-2 are empty/other)
+        case {text3, text4} do
+          {"HSE Directorate", value} ->
+            Map.put(acc, :regulator_function, Utility.upcase_first_from_upcase_phrase(value))
 
-      # Industry
-      [{"td", _, [{_, _, ["Industry"]}]}, {"td", _, [offender_industry]}], acc ->
-        Map.put(acc, :offender_industry, offender_industry)
+          _ ->
+            # Check if this is two label-value pairs (all 4 cells used)
+            case {text1, text3} do
+              {"Total Fine", "Total Costs Awarded to HSE"} ->
+                Map.merge(acc, %{
+                  offence_fine: parse_monetary_amount(text2),
+                  offence_costs: parse_monetary_amount(text4)
+                })
 
-      # Local Authority
-      [{"td", _, [{_, _, ["Local Authority"]}]}, {"td", _, [offender_local_authority]}], acc ->
-        Map.put(acc, :offender_local_authority, offender_local_authority)
+              _ ->
+                # Unknown 4-column pattern, ignore
+                acc
+            end
+        end
 
-      # Fines and Costs
-      [
-        {"td", _, [{_, _, ["Total Fine"]}]},
-        {"td", _, [offence_fine]},
-        {"td", _, [{_, _, ["Total Costs Awarded to HSE"]}]},
-        {"td", _, [offence_costs]}
-      ],
-      acc ->
-        Map.merge(acc, %{
-          offence_fine: parse_monetary_amount(offence_fine),
-          offence_costs: parse_monetary_amount(offence_costs)
-        })
+      # 2-column patterns (Main Activity, Industry, Local Authority)
+      [{"td", _, label_content}, {"td", _, value_content}], acc ->
+        label = Floki.text(label_content) |> String.trim()
+        value = Floki.text(value_content) |> String.trim()
+
+        case label do
+          "Main Activity" ->
+            Map.put(acc, :offender_main_activity, value)
+
+          "Industry" ->
+            Map.put(acc, :offender_industry, value)
+
+          "Local Authority" ->
+            Map.put(acc, :offender_local_authority, value)
+
+          _ ->
+            # Unknown 2-column pattern, ignore
+            acc
+        end
 
       # Single breach link
       [
@@ -516,17 +529,18 @@ defmodule EhsEnforcement.Scraping.Hse.CaseScraper do
           [
             {"td", _, _},
             {"td", _, _},
-            {"td", _, [offence_hearing_date]},
-            {"td", _, [offence_result]},
+            {"td", _, hearing_date_content},
+            {"td", _, result_content},
             {"td", _, _},
-            {"td", _, [offence_breach]}
+            {"td", _, breach_content}
           ],
           acc ->
             %{
               offence_number: acc.offence_number + 1,
-              offence_result: String.trim(offence_result),
-              offence_breaches: acc.offence_breaches ++ [String.trim(offence_breach)],
-              offence_hearing_date: Utility.iso_date(offence_hearing_date)
+              offence_result: Floki.text(result_content) |> String.trim(),
+              offence_breaches:
+                acc.offence_breaches ++ [Floki.text(breach_content) |> String.trim()],
+              offence_hearing_date: Utility.iso_date(Floki.text(hearing_date_content))
             }
 
           _, acc ->
@@ -574,14 +588,21 @@ defmodule EhsEnforcement.Scraping.Hse.CaseScraper do
       related_cases =
         Enum.reduce(rows, [], fn
           [
-            {"td", [], [{"a", [{"title", _}, {"href", _}], [related_case_number]}]},
+            {"td", _, case_number_content},
             {"td", _, _},
             {"td", _, _},
             {"td", _, _},
             {"td", _, _}
           ],
           acc ->
-            ["HSE_" <> String.trim(related_case_number) | acc]
+            # Extract text from first cell (case number with link)
+            case_number = Floki.text(case_number_content) |> String.trim()
+
+            if case_number != "" do
+              ["HSE_" <> case_number | acc]
+            else
+              acc
+            end
 
           _, acc ->
             acc

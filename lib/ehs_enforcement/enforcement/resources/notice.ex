@@ -6,6 +6,7 @@ defmodule EhsEnforcement.Enforcement.Notice do
   use Ash.Resource,
     domain: EhsEnforcement.Enforcement,
     data_layer: AshPostgres.DataLayer,
+    extensions: [AshOban],
     notifiers: [Ash.Notifier.PubSub]
 
   postgres do
@@ -84,6 +85,8 @@ defmodule EhsEnforcement.Enforcement.Notice do
     attribute(:offence_breaches, :string,
       description: "Description of regulation breaches/violations"
     )
+
+    attribute(:penalty_amount, :decimal, description: "SEPA monetary penalty amount (FMP/VMP)")
 
     attribute(:last_synced_at, :utc_datetime)
 
@@ -165,6 +168,7 @@ defmodule EhsEnforcement.Enforcement.Notice do
         :offence_action_date,
         :url,
         :offence_breaches,
+        :penalty_amount,
         :last_synced_at,
         :regulator_event_reference,
         :environmental_impact,
@@ -275,6 +279,7 @@ defmodule EhsEnforcement.Enforcement.Notice do
         :offence_action_date,
         :url,
         :offence_breaches,
+        :penalty_amount,
         :last_synced_at,
         :regulator_event_reference,
         :environmental_impact,
@@ -284,49 +289,151 @@ defmodule EhsEnforcement.Enforcement.Notice do
         :regulator_function
       ])
     end
+
+    create :scrape_sepa_penalties do
+      description("Scheduled scraping of SEPA penalties - monthly full scrape")
+
+      argument(:section, :atom, default: :all)
+
+      change(fn changeset, _context ->
+        section = Ash.Changeset.get_argument(changeset, :section)
+
+        # Generate a session ID for tracking
+        session_id = Ecto.UUID.generate()
+
+        require Logger
+        Logger.info("Starting scheduled SEPA scrape", session_id: session_id, section: section)
+
+        # Call the coordinator directly
+        case EhsEnforcement.Scraping.Api.SepaCoordinator.scrape_batch(
+               session_id,
+               Atom.to_string(section),
+               nil
+             ) do
+          {:ok, %{created: created, updated: updated}} ->
+            Logger.info("SEPA scheduled scrape completed",
+              session_id: session_id,
+              created: created,
+              updated: updated
+            )
+
+            # Return error to prevent actual record creation (this is a trigger action)
+            Ash.Changeset.add_error(changeset,
+              field: :scraping_result,
+              message: "SEPA scraping completed: #{created} created, #{updated} updated"
+            )
+
+          {:error, error} ->
+            Logger.error("SEPA scheduled scrape failed",
+              session_id: session_id,
+              error: inspect(error)
+            )
+
+            Ash.Changeset.add_error(changeset,
+              field: :scraping_error,
+              message: "SEPA scraping failed: #{inspect(error)}"
+            )
+        end
+      end)
+    end
+
+    create :handle_sepa_scrape_error do
+      description("Handle errors from scheduled SEPA scraping jobs")
+
+      argument(:error_details, :map)
+      argument(:job_name, :string)
+      argument(:attempt_number, :integer)
+
+      change(fn changeset, _context ->
+        error_details = Ash.Changeset.get_argument(changeset, :error_details)
+        job_name = Ash.Changeset.get_argument(changeset, :job_name)
+        attempt_number = Ash.Changeset.get_argument(changeset, :attempt_number)
+
+        require Logger
+
+        Logger.error("Scheduled SEPA scraping job failed",
+          job_name: job_name,
+          attempt: attempt_number,
+          error_details: error_details
+        )
+
+        Ash.Changeset.add_error(changeset,
+          field: :job_error,
+          message:
+            "SEPA job #{job_name} failed on attempt #{attempt_number}: #{inspect(error_details)}"
+        )
+      end)
+    end
+  end
+
+  oban do
+    triggers do
+      trigger :monthly_scrape_sepa do
+        action(:scrape_sepa_penalties)
+
+        # Monthly on the 1st at 5 AM (offset from HSE/EA scraping)
+        scheduler_cron("0 5 1 * *")
+        max_attempts(3)
+        queue(:scraping)
+        on_error(:handle_sepa_scrape_error)
+
+        worker_module_name(EhsEnforcement.Enforcement.Notice.AshOban.Worker.MonthlyScrapeSepa)
+
+        scheduler_module_name(
+          EhsEnforcement.Enforcement.Notice.AshOban.Scheduler.MonthlyScrapeSepa
+        )
+      end
+    end
   end
 
   code_interface do
     define(:create)
+    define(:scrape_sepa_penalties)
   end
 
   # Helper function to update offender agencies when notices are created/updated
+  # In test environment, skip async update to avoid sandbox issues
   defp update_offender_agencies(offender_id) do
-    spawn(fn ->
-      try do
-        # Get the offender
-        case EhsEnforcement.Enforcement.get_offender(offender_id) do
-          {:ok, offender} ->
-            # Get all unique agencies from cases and notices for this offender
-            agencies = get_unique_agencies_for_offender(offender_id)
+    if Application.get_env(:ehs_enforcement, :environment) == :test do
+      # Skip in test environment to avoid DB sandbox connection issues
+      :ok
+    else
+      spawn(fn ->
+        try do
+          # Get the offender
+          case EhsEnforcement.Enforcement.get_offender(offender_id) do
+            {:ok, offender} ->
+              # Get all unique agencies from cases and notices for this offender
+              agencies = get_unique_agencies_for_offender(offender_id)
 
-            # Update the offender's agencies array
-            case Ash.update(offender, %{agencies: agencies}) do
-              {:ok, _updated_offender} ->
-                require Logger
+              # Update the offender's agencies array
+              case Ash.update(offender, %{agencies: agencies}) do
+                {:ok, _updated_offender} ->
+                  require Logger
 
-                Logger.info(
-                  "Updated agencies for offender #{offender.name}: #{inspect(agencies)}"
-                )
+                  Logger.info(
+                    "Updated agencies for offender #{offender.name}: #{inspect(agencies)}"
+                  )
 
-              {:error, error} ->
-                require Logger
+                {:error, error} ->
+                  require Logger
 
-                Logger.warning(
-                  "Failed to update agencies for offender #{offender_id}: #{inspect(error)}"
-                )
-            end
+                  Logger.warning(
+                    "Failed to update agencies for offender #{offender_id}: #{inspect(error)}"
+                  )
+              end
 
-          {:error, error} ->
+            {:error, error} ->
+              require Logger
+              Logger.warning("Failed to get offender #{offender_id}: #{inspect(error)}")
+          end
+        rescue
+          error ->
             require Logger
-            Logger.warning("Failed to get offender #{offender_id}: #{inspect(error)}")
+            Logger.error("Error updating offender agencies: #{inspect(error)}")
         end
-      rescue
-        error ->
-          require Logger
-          Logger.error("Error updating offender agencies: #{inspect(error)}")
-      end
-    end)
+      end)
+    end
   end
 
   defp get_unique_agencies_for_offender(offender_id) do

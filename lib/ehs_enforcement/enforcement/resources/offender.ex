@@ -429,7 +429,10 @@ defmodule EhsEnforcement.Enforcement.Offender do
   with fuzzy matching fallback to prevent duplicates.
   """
   def find_or_create_offender(attrs) do
-    normalized_attrs = normalize_attrs(attrs)
+    # Remove metadata fields that shouldn't be processed
+    {_review_candidates, clean_attrs} = Map.pop(attrs, :__review_candidates__)
+
+    normalized_attrs = normalize_attrs(clean_attrs)
 
     # Check if name is empty or only whitespace
     name = String.trim(normalized_attrs[:name] || "")

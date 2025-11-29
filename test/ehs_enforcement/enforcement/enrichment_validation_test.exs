@@ -25,10 +25,14 @@ defmodule EhsEnforcement.Enforcement.EnrichmentValidationTest do
     }
 
     {:ok, user} =
-      Ash.create(EhsEnforcement.Accounts.User, %{
-        user_info: user_info,
-        oauth_tokens: oauth_tokens
-      }, action: :register_with_github)
+      Ash.create(
+        EhsEnforcement.Accounts.User,
+        %{
+          user_info: user_info,
+          oauth_tokens: oauth_tokens
+        },
+        action: :register_with_github
+      )
 
     # Create test agency, offender, and case
     {:ok, agency} =
@@ -267,10 +271,14 @@ defmodule EhsEnforcement.Enforcement.EnrichmentValidationTest do
       }
 
       {:ok, user2} =
-        Ash.create(EhsEnforcement.Accounts.User, %{
-          user_info: user_info2,
-          oauth_tokens: oauth_tokens2
-        }, action: :register_with_github)
+        Ash.create(
+          EhsEnforcement.Accounts.User,
+          %{
+            user_info: user_info2,
+            oauth_tokens: oauth_tokens2
+          },
+          action: :register_with_github
+        )
 
       # First user validates
       attrs1 = %{
@@ -343,7 +351,11 @@ defmodule EhsEnforcement.Enforcement.EnrichmentValidationTest do
       assert Enum.all?(validations, fn v -> v.enrichment_id == enrichment.id end)
     end
 
-    test "queries validations by user", %{enrichment: enrichment, user: user, test_case: test_case} do
+    test "queries validations by user", %{
+      enrichment: enrichment,
+      user: user,
+      test_case: test_case
+    } do
       # Create another enrichment
       {:ok, enrichment2} =
         Enforcement.create_enrichment(%{
@@ -434,7 +446,10 @@ defmodule EhsEnforcement.Enforcement.EnrichmentValidationTest do
       assert Enum.all?(high_quality, fn v -> v.rating >= 4 end)
     end
 
-    test "queries validations needing attention (1-2 stars)", %{enrichment: enrichment, user: user} do
+    test "queries validations needing attention (1-2 stars)", %{
+      enrichment: enrichment,
+      user: user
+    } do
       # Create mix of ratings
       {:ok, _low1} =
         Enforcement.create_validation(%{
@@ -672,7 +687,11 @@ defmodule EhsEnforcement.Enforcement.EnrichmentValidationTest do
       assert average == 4.0
     end
 
-    test "calculates reputation score for user", %{enrichment: enrichment, user: user, test_case: test_case} do
+    test "calculates reputation score for user", %{
+      enrichment: enrichment,
+      user: user,
+      test_case: test_case
+    } do
       # Create multiple high-quality validations (4-5 stars)
       {:ok, _} =
         Enforcement.create_validation(%{

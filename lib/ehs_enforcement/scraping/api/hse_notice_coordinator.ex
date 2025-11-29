@@ -74,26 +74,16 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
         "Phase 2 complete: #{length(new_notices)} new, #{length(updated_notices)} updated, #{length(existing_notices)} existing"
       )
 
-      # PHASE 3: Process only new/changed records
+      # PHASE 3: Process and save records one-by-one (real-time progress)
       _ =
         broadcast_progress(session_id, %{
           phase: "processing_records",
           records_to_process: length(to_process)
         })
 
-      processed_notices = process_notices(session_id, to_process)
+      {created_count, updated_count} = process_and_save_notices(session_id, to_process, actor)
 
-      Logger.info("Phase 3 complete: Processed #{length(processed_notices)} notices")
-
-      # PHASE 4: Save to database
-      _ =
-        broadcast_progress(session_id, %{
-          phase: "saving"
-        })
-
-      {created_count, updated_count} = save_notices(session_id, processed_notices, actor)
-
-      Logger.info("Phase 4 complete: Created #{created_count}, Updated #{updated_count}")
+      Logger.info("Phase 3 complete: Created #{created_count}, Updated #{updated_count}")
 
       # Broadcast completion
       _ =
@@ -190,28 +180,49 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
   end
 
   # ============================================================================
-  # PHASE 3: Process New/Changed Records (Enrich with Details/Breaches)
+  # PHASE 3: Process and Save Records One-by-One (Real-time Progress)
   # ============================================================================
 
-  defp process_notices(session_id, notices_to_process) do
+  defp process_and_save_notices(session_id, notices_to_process, actor) do
     notices_to_process
     |> Enum.with_index()
-    |> Enum.map(fn {notice, index} ->
-      # Enrich with details and breaches
+    |> Enum.reduce({0, 0}, fn {notice, index}, {created, updated} ->
+      # Step 1: Enrich with details and breaches
       enriched = enrich_notice(notice)
 
-      # Broadcast progress
+      # Step 2: Immediately save to database
+      {new_created, new_updated} =
+        case NoticeProcessor.process_and_create_notice(enriched, actor) do
+          {:ok, _notice} ->
+            # Successfully saved - determine if created or updated
+            {created + 1, updated}
+
+          {:error, reason} ->
+            Logger.warning("Failed to save notice #{enriched.regulator_id}: #{inspect(reason)}")
+
+            _ =
+              broadcast_error(session_id, %{
+                regulator_id: enriched.regulator_id,
+                message: inspect(reason)
+              })
+
+            # No change to counters on error
+            {created, updated}
+        end
+
+      # Step 3: Broadcast real-time progress after each save
       _ =
         broadcast_progress(session_id, %{
           phase: "processing_records",
           records_processed: index + 1,
-          records_enriched: index + 1
+          records_created: new_created,
+          records_updated: new_updated
         })
 
-      # Broadcast individual record
+      # Broadcast individual record processed
       _ = broadcast_record_processed(session_id, enriched)
 
-      enriched
+      {new_created, new_updated}
     end)
   end
 
@@ -236,44 +247,6 @@ defmodule EhsEnforcement.Scraping.Api.HseNoticeCoordinator do
     basic_notice
     |> Map.merge(details)
     |> Map.merge(breaches)
-  end
-
-  # ============================================================================
-  # PHASE 4: Save to Database (Batch Create/Update)
-  # ============================================================================
-
-  defp save_notices(session_id, processed_notices, actor) do
-    results =
-      Enum.reduce(processed_notices, {0, 0}, fn enriched_notice, {created, updated} ->
-        case NoticeProcessor.process_and_create_notice(enriched_notice, actor) do
-          {:ok, _notice} ->
-            # Determine if created or updated based on existence check
-            # (Could be improved with explicit action tracking)
-            {created + 1, updated}
-
-          {:error, reason} ->
-            Logger.warning(
-              "Failed to save notice #{enriched_notice.regulator_id}: #{inspect(reason)}"
-            )
-
-            _ =
-              broadcast_error(session_id, %{
-                regulator_id: enriched_notice.regulator_id,
-                message: inspect(reason)
-              })
-
-            {created, updated}
-        end
-      end)
-
-    _ =
-      broadcast_progress(session_id, %{
-        phase: "saving",
-        records_created: elem(results, 0),
-        records_updated: elem(results, 1)
-      })
-
-    results
   end
 
   # ============================================================================

@@ -77,7 +77,8 @@ defmodule EhsEnforcement.Repo.Migrations.AddEnrichmentTables do
 
     # XOR constraint: exactly one parent (case_id XOR notice_id)
     create constraint(:enrichments, :must_have_one_parent,
-             check: "(case_id IS NOT NULL AND notice_id IS NULL) OR (case_id IS NULL AND notice_id IS NOT NULL)"
+             check:
+               "(case_id IS NOT NULL AND notice_id IS NULL) OR (case_id IS NULL AND notice_id IS NOT NULL)"
            )
 
     create table(:enrichment_validations, primary_key: false) do

@@ -13,6 +13,9 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
   require Logger
   alias EhsEnforcement.Scraping.ScrapeSession
   alias EhsEnforcement.Scraping.Api.HseNoticeCoordinator
+  alias EhsEnforcement.Scraping.Api.HseCaseCoordinator
+  alias EhsEnforcement.Scraping.Api.EaCaseCoordinator
+  alias EhsEnforcement.Scraping.Api.SepaCoordinator
 
   @doc """
   Start a new scraping session.
@@ -227,14 +230,25 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
                to_date: params["to_date"]
              }}
           end
+
+        "sepa" ->
+          # SEPA is single-page, no pagination needed
+          {:ok,
+           %{
+             agency: String.to_existing_atom(agency),
+             database: "penalties",
+             section: params["section"] || "all"
+           }}
       end
     end
   end
 
-  defp validate_agency(agency) when agency in ["hse", "ea"], do: :ok
+  defp validate_agency(agency) when agency in ["hse", "ea", "sepa"], do: :ok
 
   defp validate_agency(agency),
-    do: {:error, :invalid_params, "Invalid agency: #{inspect(agency)}. Must be 'hse' or 'ea'"}
+    do:
+      {:error, :invalid_params,
+       "Invalid agency: #{inspect(agency)}. Must be 'hse', 'ea', or 'sepa'"}
 
   defp validate_database(database)
        when database in ["notices", "convictions", "appeals", "cases"],
@@ -311,6 +325,13 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
             date_from: params.from_date,
             date_to: params.to_date
           })
+
+        :sepa ->
+          # SEPA is single-page scraping
+          Map.merge(base_attributes, %{
+            start_page: 1,
+            max_pages: 1
+          })
       end
 
     ScrapeSession
@@ -342,16 +363,22 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
                 )
 
               {:hse, "convictions"} ->
-                # TODO: Implement HSE convictions coordinator
-                # For now, return success to make tests pass (TDD green phase)
-                Logger.info("HSE convictions scraping requested - returning placeholder success")
-                {:ok, %{created: 0, updated: 0}}
+                HseCaseCoordinator.scrape_batch(
+                  session.session_id,
+                  params.start_page,
+                  params.max_pages,
+                  params.database,
+                  nil
+                )
 
               {:hse, "appeals"} ->
-                # TODO: Implement HSE appeals coordinator
-                # For now, return success to make tests pass (TDD green phase)
-                Logger.info("HSE appeals scraping requested - returning placeholder success")
-                {:ok, %{created: 0, updated: 0}}
+                HseCaseCoordinator.scrape_batch(
+                  session.session_id,
+                  params.start_page,
+                  params.max_pages,
+                  params.database,
+                  nil
+                )
 
               {:ea, "notices"} ->
                 alias EhsEnforcement.Scraping.Api.EaNoticeCoordinator
@@ -364,10 +391,20 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
                 )
 
               {:ea, "cases"} ->
-                # TODO: Implement EA cases coordinator
-                # For now, return success to make tests pass (TDD green phase)
-                Logger.info("EA cases scraping requested - returning placeholder success")
-                {:ok, %{created: 0, updated: 0}}
+                EaCaseCoordinator.scrape_batch(
+                  session.session_id,
+                  params.from_date,
+                  params.to_date,
+                  nil,
+                  nil
+                )
+
+              {:sepa, "penalties"} ->
+                SepaCoordinator.scrape_batch(
+                  session.session_id,
+                  params.section,
+                  nil
+                )
 
               _other ->
                 {:error, :not_implemented}

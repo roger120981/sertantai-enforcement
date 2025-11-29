@@ -12,7 +12,7 @@
 
     <link rel="stylesheet" href="dist/html-elixir-KV3YOVJ3.css" />
 
-    <script defer src="dist/sidebar_items-C3665938.js"></script>
+    <script defer src="dist/sidebar_items-17F6BAF6.js"></script>
     <script defer src="docs_config.js"></script>
     <script defer src="dist/html-DPJLHKSM.js"></script>
 
@@ -113,6 +113,16 @@ ehs_enforcement
 
     <div class="summary-row">
       <div class="summary-signature">
+        <a href="#create_case_offences/3" data-no-tooltip="" translate="no">create_case_offences(case_record, breach_data, actor \\ nil)</a>
+
+      </div>
+
+        <div class="summary-synopsis"><p>Create Offence resources from breach data for an HSE case.</p></div>
+
+    </div>
+
+    <div class="summary-row">
+      <div class="summary-signature">
         <a href="#create_cases/2" data-no-tooltip="" translate="no">create_cases(processed_cases, actor \\ nil)</a>
 
       </div>
@@ -182,6 +192,27 @@ ehs_enforcement
   <section class="docstring">
 
 <p>Create Ash case resource from processed case data.</p><p>Returns {:ok, case} or {:error, ash_error}</p>
+  </section>
+</section>
+<section class="detail" id="create_case_offences/3">
+
+    <span id="create_case_offences/2"></span>
+
+  <div class="detail-header">
+    <a href="#create_case_offences/3" class="detail-link" data-no-tooltip="" aria-label="Link to this function">
+      <i class="ri-link-m" aria-hidden="true"></i>
+    </a>
+    <div class="heading-with-actions">
+      <h1 class="signature" translate="no">create_case_offences(case_record, breach_data, actor \\ nil)</h1>
+
+
+    </div>
+  </div>
+
+  <section class="docstring">
+
+<p>Create Offence resources from breach data for an HSE case.</p><p>Parses breach text, finds/creates legislation, and creates linked Offence records.
+Returns {:ok, offences} or {:error, reason}</p>
   </section>
 </section>
 <section class="detail" id="create_cases/2">

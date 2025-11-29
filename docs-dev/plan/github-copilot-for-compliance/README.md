@@ -170,7 +170,38 @@ Each sprint document includes:
 
 ---
 
-#### 6. [`ai-compliance-copilot.md`](./ai-compliance-copilot.md)
+#### 6. [`contract-prequalification-intelligence.md`](./contract-prequalification-intelligence.md)
+**Duration**: 3 weeks | **Priority**: Phase 2 (Intelligence) | **Revenue**: Enterprise Feature
+
+**Transform procurement EHS verification from checkbox to evidence-based intelligence**
+
+**Features**:
+- Supplier enforcement history lookup (company name or Companies House number)
+- Declaration verification (compare PQQ claims against actual records)
+- AI-powered risk scoring (frequency, severity, recency, sector-adjusted)
+- Offender response integration (supplier context and corrective actions)
+- Industry benchmarking (percentile ranking within sector)
+- Verification reports (PDF export for tender documentation)
+- Enterprise API (integrate with SAP Ariba, Oracle, Jaggaer)
+
+**Technical Highlights**:
+- Companies House API integration
+- Fuzzy matching for trading names and subsidiaries
+- Composite risk scoring algorithm
+- AI explanation generation
+- Bulk operations for enterprise customers
+
+**Business Value**: Major enterprise revenue driver - every large contract requires EHS pre-qualification. Partners with SafeContractor, CHAS, Constructionline.
+
+**Target Markets**:
+- 50,000+ SafeContractor members
+- 60,000+ CHAS members
+- £30B+ Crown Commercial Service procurement
+- Construction, utilities, oil & gas, manufacturing
+
+---
+
+#### 7. [`ai-compliance-copilot.md`](./ai-compliance-copilot.md)
 **Duration**: 3 weeks | **Priority**: Phase 3 (Engagement)
 
 **ChatGPT-style AI assistant running over local enforcement data**
@@ -192,7 +223,7 @@ Each sprint document includes:
 
 ---
 
-#### 7. [`ai-model-evaluation-framework.md`](./ai-model-evaluation-framework.md)
+#### 8. [`ai-model-evaluation-framework.md`](./ai-model-evaluation-framework.md)
 **Duration**: Ongoing | **Priority**: Infrastructure
 
 **Framework for evaluating and selecting AI models for compliance tasks**
@@ -232,12 +263,13 @@ Build AI infrastructure and professional community foundations.
 
 ---
 
-### Phase 2: Intelligence (Weeks 5-11)
-Layer on predictive analytics and regulator transparency.
+### Phase 2: Intelligence (Weeks 5-14)
+Layer on predictive analytics, regulator transparency, and enterprise pre-qualification.
 
 **Sprints**:
 3. **AI Predictive Risk Intelligence** (3 weeks) - Leverages enriched data for forecasting
 4. **Regulator Scorecard System** (2 weeks) - Adds accountability layer
+5. **Contract Pre-Qualification Intelligence** (3 weeks) - Enterprise revenue driver
 
 **Deliverables**:
 - Time-series forecasting models
@@ -245,15 +277,19 @@ Layer on predictive analytics and regulator transparency.
 - Regulator rating system
 - Comparative analytics dashboard
 - Official regulator response portal
+- Supplier enforcement lookup and verification
+- AI-powered risk scoring for procurement
+- Enterprise API for tender system integration
+- Verification reports for PQQ compliance
 
 ---
 
-### Phase 3: Engagement (Weeks 12-17)
+### Phase 3: Engagement (Weeks 15-20)
 Add unique content sources and bring it all together with AI copilot.
 
 **Sprints**:
-5. **Offender Breach Expansion** (2 weeks) - Unique content generation
-6. **AI Compliance Copilot** (3 weeks) - Unifies all features
+6. **Offender Breach Expansion** (2 weeks) - Unique content generation
+7. **AI Compliance Copilot** (3 weeks) - Unifies all features
 
 **Deliverables**:
 - Verified offender submission system
@@ -262,7 +298,7 @@ Add unique content sources and bring it all together with AI copilot.
 - RAG-powered chat interface
 - Local model support (Ollama)
 
-**Total Timeline**: ~4 months for all 6 core features
+**Total Timeline**: ~5 months for all 7 core features
 
 ---
 
@@ -323,6 +359,16 @@ Add unique content sources and bring it all together with AI copilot.
 - Need: Accessible compliance guidance, supplier due diligence
 - Pain: Can't afford lawyers, don't understand regulations
 - Value: Plain language summaries, know what "good" looks like
+
+**Procurement Teams** (Public + Private sector)
+- Need: Verify supplier EHS compliance claims, assess risk
+- Pain: Manual verification, incomplete data, no benchmarks
+- Value: Instant verification, risk scores, defensible decisions
+
+**Pre-Qualification Schemes** (SafeContractor, CHAS, Constructionline)
+- Need: Enhance member verification, add enforcement intelligence
+- Pain: Self-declared data only, no independent verification
+- Value: API integration, verified enforcement data, risk scoring
 
 ---
 

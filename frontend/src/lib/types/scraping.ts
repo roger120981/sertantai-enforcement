@@ -61,12 +61,17 @@ export type SSEEvent =
   | { type: 'stopped'; data: Record<string, never> }
 
 /**
+ * Supported agencies
+ */
+export type Agency = 'hse' | 'ea' | 'sepa'
+
+/**
  * Scraping session (from API and ElectricSQL)
  */
 export interface ScrapingSession {
   id: string
   session_id: string
-  agency: 'hse' | 'environment_agency'
+  agency: Agency
   database: string
   start_page: number
   max_pages: number
@@ -84,15 +89,39 @@ export interface ScrapingSession {
 }
 
 /**
- * API request for starting scraping
+ * API request for starting scraping - HSE
  */
-export interface StartScrapingRequest {
-  agency: 'hse' | 'environment_agency'
+export interface HseScrapingRequest {
+  agency: 'hse'
   database: 'notices' | 'convictions' | 'appeals'
   start_page: number
   max_pages: number
   country?: string
 }
+
+/**
+ * API request for starting scraping - EA
+ */
+export interface EaScrapingRequest {
+  agency: 'ea'
+  database: 'notices' | 'convictions' | 'appeals'
+  from_date: string
+  to_date: string
+}
+
+/**
+ * API request for starting scraping - SEPA
+ */
+export interface SepaScrapingRequest {
+  agency: 'sepa'
+  database: 'penalties'
+  section?: 'all' | 'penalties' | 'undertakings' | 'costs_recovery'
+}
+
+/**
+ * Union type for all scraping requests
+ */
+export type StartScrapingRequest = HseScrapingRequest | EaScrapingRequest | SepaScrapingRequest
 
 /**
  * API response from start scraping
@@ -130,9 +159,10 @@ export interface ScrapingProgress {
  * Form data for scraping UI
  */
 export interface ScrapingFormData {
-  agency: 'hse' | 'environment_agency'
-  database: 'notices' | 'convictions' | 'appeals'
-  startPage: number
-  maxPages: number
+  agency: Agency
+  database: 'notices' | 'convictions' | 'appeals' | 'penalties'
+  startPage: number | string
+  maxPages: number | string
   country: string
+  section: 'all' | 'penalties' | 'undertakings' | 'costs_recovery'
 }

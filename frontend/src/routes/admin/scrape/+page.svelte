@@ -21,11 +21,12 @@
 
   // Form state
   let formData = {
-    agency: 'hse' as 'hse' | 'environment_agency',
-    database: 'notices' as 'notices' | 'convictions' | 'appeals',
+    agency: 'hse' as 'hse' | 'ea' | 'sepa',
+    database: 'notices' as 'notices' | 'convictions' | 'appeals' | 'penalties',
     startPage: 1 as number | string,
     maxPages: 5 as number | string,
     country: 'All',
+    section: 'all' as 'all' | 'penalties' | 'undertakings' | 'costs_recovery',
   }
 
   // Reset form values when agency changes (but only when not scraping)
@@ -33,15 +34,20 @@
   $: if (formData.agency !== previousAgency && !isScraping) {
     previousAgency = formData.agency
     if (formData.agency === 'hse') {
+      formData.database = 'notices'
       formData.startPage = 1
       formData.maxPages = 5
-    } else {
+    } else if (formData.agency === 'ea') {
+      formData.database = 'notices'
       // Set default dates for EA (last 30 days)
       const today = new Date()
       const thirtyDaysAgo = new Date(today)
       thirtyDaysAgo.setDate(today.getDate() - 30)
       formData.startPage = thirtyDaysAgo.toISOString().split('T')[0]
       formData.maxPages = today.toISOString().split('T')[0]
+    } else if (formData.agency === 'sepa') {
+      formData.database = 'penalties'
+      formData.section = 'all'
     }
   }
 
@@ -184,21 +190,30 @@
       })
 
       // Call API to start scraping with correct parameters based on agency
-      const requestParams =
-        formData.agency === 'hse'
-          ? {
-              agency: formData.agency,
-              database: formData.database,
-              start_page: formData.startPage,
-              max_pages: formData.maxPages,
-              country: formData.country,
-            }
-          : {
-              agency: formData.agency,
-              database: formData.database,
-              from_date: formData.startPage,
-              to_date: formData.maxPages,
-            }
+      let requestParams: import('$lib/types/scraping').StartScrapingRequest
+      if (formData.agency === 'hse') {
+        requestParams = {
+          agency: 'hse',
+          database: formData.database as 'notices' | 'convictions' | 'appeals',
+          start_page: formData.startPage as number,
+          max_pages: formData.maxPages as number,
+          country: formData.country,
+        }
+      } else if (formData.agency === 'ea') {
+        requestParams = {
+          agency: 'ea',
+          database: formData.database as 'notices' | 'convictions' | 'appeals',
+          from_date: formData.startPage as string,
+          to_date: formData.maxPages as string,
+        }
+      } else {
+        // SEPA - single page scraping with section filter
+        requestParams = {
+          agency: 'sepa',
+          database: 'penalties',
+          section: formData.section,
+        }
+      }
 
       $startScraping.mutate(requestParams, {
           onSuccess: (data) => {
@@ -319,58 +334,71 @@
 
       <form on:submit|preventDefault={handleStart} class="p-5">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <!-- Agency (as buttons) -->
-          <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Agency</label>
-            <div class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                on:click={() => (formData.agency = 'hse')}
-                disabled={isScraping}
-                class="px-4 py-2 text-sm font-medium rounded-md border transition-colors {formData.agency ===
-                'hse'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                HSE (Health & Safety Executive)
-              </button>
-              <button
-                type="button"
-                on:click={() => (formData.agency = 'environment_agency')}
-                disabled={isScraping}
-                class="px-4 py-2 text-sm font-medium rounded-md border transition-colors {formData.agency ===
-                'environment_agency'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'} disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Environment Agency (EA)
-              </button>
-            </div>
-          </div>
-
-          <!-- Select Enforcement Type -->
+          <!-- Agency Dropdown -->
           <div>
-            <label for="database" class="block text-sm font-medium text-gray-700 mb-2">
-              Enforcement Type
-            </label>
+            <label for="agency" class="block text-sm font-medium text-gray-700 mb-2">Agency</label>
             <select
-              id="database"
-              bind:value={formData.database}
+              id="agency"
+              bind:value={formData.agency}
               disabled={isScraping}
               class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
             >
-              <option value="notices">Enforcement Notices</option>
-              <option value="convictions">Convictions</option>
-              <option value="appeals">Appeals</option>
+              <option value="hse">HSE (Health & Safety Executive)</option>
+              <option value="ea">Environment Agency (EA)</option>
+              <option value="sepa">SEPA (Scottish Environment Protection Agency)</option>
             </select>
           </div>
 
-          <!-- Start Page/Date -->
-          <div>
-            <label for="startPage" class="block text-sm font-medium text-gray-700 mb-2">
-              {formData.agency === 'hse' ? 'Start Page' : 'From Date'}
-            </label>
-            {#if formData.agency === 'hse'}
+          <!-- Select Enforcement Type (HSE/EA only) -->
+          {#if formData.agency === 'hse' || formData.agency === 'ea'}
+            <div>
+              <label for="database" class="block text-sm font-medium text-gray-700 mb-2">
+                Enforcement Type
+              </label>
+              <select
+                id="database"
+                bind:value={formData.database}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="notices">Enforcement Notices</option>
+                <option value="convictions">Convictions</option>
+                <option value="appeals">Appeals</option>
+              </select>
+            </div>
+          {/if}
+
+          <!-- SEPA Section Filter -->
+          {#if formData.agency === 'sepa'}
+            <div>
+              <label for="section" class="block text-sm font-medium text-gray-700 mb-2">
+                Section Filter
+              </label>
+              <select
+                id="section"
+                bind:value={formData.section}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="all">All Sections</option>
+                <option value="penalties">Monetary Penalties (FMP/VMP)</option>
+                <option value="undertakings">Enforcement Undertakings</option>
+                <option value="costs_recovery">Costs Recovery Notices</option>
+              </select>
+            </div>
+            <div class="lg:col-span-2">
+              <p class="text-sm text-gray-500 mt-6">
+                SEPA publishes all enforcement data on a single page. No pagination or date range needed.
+              </p>
+            </div>
+          {/if}
+
+          <!-- HSE: Start Page / Max Pages -->
+          {#if formData.agency === 'hse'}
+            <div>
+              <label for="startPage" class="block text-sm font-medium text-gray-700 mb-2">
+                Start Page
+              </label>
               <input
                 id="startPage"
                 type="number"
@@ -380,7 +408,29 @@
                 disabled={isScraping}
                 class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
               />
-            {:else}
+            </div>
+            <div>
+              <label for="maxPages" class="block text-sm font-medium text-gray-700 mb-2">
+                Max Pages
+              </label>
+              <input
+                id="maxPages"
+                type="number"
+                min="1"
+                max="100"
+                bind:value={formData.maxPages}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
+              />
+            </div>
+          {/if}
+
+          <!-- EA: Date Range -->
+          {#if formData.agency === 'ea'}
+            <div>
+              <label for="startPage" class="block text-sm font-medium text-gray-700 mb-2">
+                From Date
+              </label>
               <input
                 id="startPage"
                 type="date"
@@ -391,25 +441,11 @@
                 disabled={isScraping}
                 class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
               />
-            {/if}
-          </div>
-
-          <!-- End Page/Date -->
-          <div>
-            <label for="maxPages" class="block text-sm font-medium text-gray-700 mb-2">
-              {formData.agency === 'hse' ? 'Max Pages' : 'To Date'}
-            </label>
-            {#if formData.agency === 'hse'}
-              <input
-                id="maxPages"
-                type="number"
-                min="1"
-                max="100"
-                bind:value={formData.maxPages}
-                disabled={isScraping}
-                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
-              />
-            {:else}
+            </div>
+            <div>
+              <label for="maxPages" class="block text-sm font-medium text-gray-700 mb-2">
+                To Date
+              </label>
               <input
                 id="maxPages"
                 type="date"
@@ -420,8 +456,8 @@
                 disabled={isScraping}
                 class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
               />
-            {/if}
-          </div>
+            </div>
+          {/if}
         </div>
 
         <!-- Action Row -->
