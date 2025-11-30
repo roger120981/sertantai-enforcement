@@ -112,6 +112,9 @@ EhsEnforcement.Scraping.Hse.CaseScraper.html
 EhsEnforcement.Scraping.Hse.NoticeProcessor.ProcessedNotice.html
 EhsEnforcement.Scraping.Hse.NoticeProcessor.html
 EhsEnforcement.Scraping.Hse.NoticeScraper.html
+EhsEnforcement.Scraping.Mca.McaAiCaseProcessor.html
+EhsEnforcement.Scraping.Mca.McaAiPdfParser.ParsedCase.html
+EhsEnforcement.Scraping.Mca.McaAiPdfParser.html
 EhsEnforcement.Scraping.Mca.McaProsecutionProcessor.ProcessedProsecution.html
 EhsEnforcement.Scraping.Mca.McaProsecutionProcessor.html
 EhsEnforcement.Scraping.Mca.McaProsecutionScraper.ScrapedProsecution.html
@@ -224,8 +227,8 @@ dist/lato-latin-700-normal-2XVSBPG4.woff2
 dist/lato-latin-ext-400-normal-N27NCBWW.woff2
 dist/lato-latin-ext-700-normal-Q2L5DVMW.woff2
 dist/remixicon-QPNJX265.woff2
-dist/search_data-09466D6E.js
-dist/sidebar_items-6435F983.js
+dist/search_data-3B7BFAF5.js
+dist/sidebar_items-1B333C9F.js
 index.html
 readme.html
 search.html

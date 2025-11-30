@@ -244,10 +244,16 @@ defmodule EhsEnforcement.Scraping.Mca.McaProsecutionScraper do
     # Parse HTML using Floki
     {:ok, document} = Floki.parse_document(html)
 
-    # GOV.UK prosecution pages use h2 elements to separate cases
-    # Each case has structure: <h2>Title</h2> followed by <h3>Defendant</h3>, <h3>Date of hearing</h3>, <h3>Details</h3>
+    # GOV.UK prosecution pages use numbered h2 elements for cases
+    # Pattern: <h2 id="slug">N. Case Title</h2>
+    # Cookie banner and other h2s don't match this pattern
     document
-    |> Floki.find("article.gem-c-govspeak h2, article h2, .govspeak h2, main h2")
+    |> Floki.find("h2[id]")
+    |> Enum.filter(fn h2_element ->
+      # Only include h2s that start with a number (case sections)
+      text = Floki.text(h2_element) |> String.trim()
+      Regex.match?(~r/^\d+\.\s+/, text)
+    end)
     |> Enum.map(fn h2_element ->
       parse_case_section(h2_element, document, year, timestamp)
     end)
@@ -255,25 +261,36 @@ defmodule EhsEnforcement.Scraping.Mca.McaProsecutionScraper do
   end
 
   defp parse_case_section(h2_element, document, year, timestamp) do
-    case_title = Floki.text(h2_element) |> String.trim()
+    case_title_raw = Floki.text(h2_element) |> String.trim()
 
-    # Skip non-case headings
-    if skip_heading?(case_title) do
-      nil
-    else
-      # Get all sibling elements until next h2
-      siblings = get_siblings_until_next_h2(h2_element, document)
+    # Remove the number prefix (e.g., "1. " -> "")
+    case_title = Regex.replace(~r/^\d+\.\s*/, case_title_raw, "")
 
-      # Extract data from siblings
-      defendant_info = extract_section_content(siblings, ["defendant", "defendants"])
-      hearing_date = extract_section_content(siblings, ["date of hearing", "hearing date"])
-      details = extract_section_content(siblings, ["details", "detail"])
+    # Get the h2's ID to find associated h3 sections
+    h2_id = Floki.attribute(h2_element, "id") |> List.first()
+
+    # Extract case number from title (e.g., "1" from "1. Boat owner...")
+    case_num =
+      case Regex.run(~r/^(\d+)\./, case_title_raw) do
+        [_, num] -> num
+        nil -> nil
+      end
+
+    if case_num do
+      # Find h3 elements that belong to this case (e.g., "1.1 Defendant", "1.2 Date of hearing")
+      # The h3 IDs have patterns like "defendant", "defendant-1", "defendant-2" etc.
+      # But the text starts with "X.Y" matching the case number
+
+      # Extract section content by finding h3s with matching case number prefix
+      defendant_info = extract_section_by_pattern(document, case_num, ["defendant"])
+      hearing_date_text = extract_section_by_pattern(document, case_num, ["date of hearing"])
+      details = extract_section_by_pattern(document, case_num, ["details", "detail"])
 
       # Parse defendant info (name, age, location)
       {defendant_name, defendant_age, defendant_location} = parse_defendant(defendant_info)
 
       # Parse hearing date
-      parsed_date = parse_hearing_date(hearing_date)
+      parsed_date = parse_hearing_date(hearing_date_text)
 
       # Extract court from details
       court = extract_court(details)
@@ -303,74 +320,72 @@ defmodule EhsEnforcement.Scraping.Mca.McaProsecutionScraper do
         total_penalty: total,
         scrape_timestamp: timestamp
       }
+    else
+      Logger.warning("MCA: Could not parse case number from: #{case_title_raw}, h2_id: #{h2_id}")
+      nil
     end
   end
 
-  defp skip_heading?(title) do
-    skip_patterns = [
-      ~r/^contents$/i,
-      ~r/^introduction$/i,
-      ~r/^about this/i,
-      ~r/^related/i,
-      ~r/^further information/i,
-      ~r/^contact/i
-    ]
+  defp extract_section_by_pattern(document, case_num, section_keywords) do
+    # Find h3 elements that match pattern "X.Y section_keyword" where X is the case number
+    h3_elements = Floki.find(document, "h3")
 
-    Enum.any?(skip_patterns, &Regex.match?(&1, title))
-  end
-
-  defp get_siblings_until_next_h2(h2_element, document) do
-    # Get the ID of this h2 for reference
-    h2_id = Floki.attribute(h2_element, "id") |> List.first()
-
-    # Find all content between this h2 and the next h2
-    # This is a simplified approach - get all h3 and p elements after this h2
-    all_h3s = Floki.find(document, "h3")
-    all_ps = Floki.find(document, "p")
-
-    # Combine and return as a list of elements
-    # In practice, we'll extract text from the page content
-    {all_h3s, all_ps, h2_id}
-  end
-
-  defp extract_section_content({h3s, ps, _h2_id}, section_names) do
-    # Find h3 that matches section name
     matching_h3 =
-      Enum.find(h3s, fn h3 ->
+      Enum.find(h3_elements, fn h3 ->
         text = Floki.text(h3) |> String.downcase() |> String.trim()
 
-        # Remove numbering like "1. " from the start
-        cleaned_text = Regex.replace(~r/^\d+\.\s*/, text, "")
+        # Check if text starts with "X.Y" where X matches case_num
+        case Regex.run(~r/^(\d+)\.\d+\s+(.+)/, text) do
+          [_, num, rest] when num == case_num ->
+            Enum.any?(section_keywords, fn kw ->
+              String.contains?(rest, String.downcase(kw))
+            end)
 
-        Enum.any?(section_names, fn name ->
-          String.contains?(cleaned_text, String.downcase(name))
-        end)
+          _ ->
+            false
+        end
       end)
 
     if matching_h3 do
-      # Get the text content following this h3 (next p element)
-      # Note: h3_id could be used for more precise DOM traversal in future
-      _h3_id = Floki.attribute(matching_h3, "id") |> List.first()
+      # Get the h3's ID to find following paragraph(s)
+      h3_id = Floki.attribute(matching_h3, "id") |> List.first()
 
-      # Find paragraphs that follow this h3 (simplified: just get next p)
-      # In a real DOM traversal, we'd walk siblings
-      # For now, try to extract from the paragraph text
-      matching_p =
-        Enum.find(ps, fn p ->
-          text = Floki.text(p) |> String.trim()
-          # Skip empty paragraphs and those that look like headers
-          String.length(text) > 3 and not String.starts_with?(text, "1.")
-        end)
-
-      if matching_p do
-        Floki.text(matching_p) |> String.trim()
-      else
-        nil
-      end
+      # Find all paragraphs that follow this h3 until the next h2 or h3
+      # Use CSS selector to find sibling elements
+      extract_paragraphs_after_h3(document, h3_id)
     else
       nil
     end
   end
+
+  defp extract_paragraphs_after_h3(document, h3_id) when is_binary(h3_id) do
+    # Get the raw HTML and find paragraphs between this h3 and the next h2/h3
+    # This is a workaround since Floki doesn't have easy sibling traversal
+
+    html = Floki.raw_html(document)
+
+    # Find content between this h3 and the next h2 or h3
+    pattern =
+      ~r/<h3[^>]*id="#{Regex.escape(h3_id)}"[^>]*>.*?<\/h3>\s*(.*?)(?=<h[23]|<\/article|$)/is
+
+    case Regex.run(pattern, html) do
+      [_, content] ->
+        # Parse the content and extract text from paragraphs
+        {:ok, fragment} = Floki.parse_fragment(content)
+
+        fragment
+        |> Floki.find("p")
+        |> Enum.map(&Floki.text/1)
+        |> Enum.map(&String.trim/1)
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.join(" ")
+
+      nil ->
+        nil
+    end
+  end
+
+  defp extract_paragraphs_after_h3(_document, _h3_id), do: nil
 
   defp parse_defendant(nil), do: {nil, nil, nil}
 

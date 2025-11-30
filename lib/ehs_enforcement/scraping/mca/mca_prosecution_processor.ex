@@ -398,7 +398,12 @@ defmodule EhsEnforcement.Scraping.Mca.McaProsecutionProcessor do
     legislation_type = Utility.determine_legislation_type(legislation_title)
 
     # Find or create legislation record
-    case find_or_create_legislation(legislation_title, legislation_year, legislation_type, actor) do
+    case find_or_create_legislation_record(
+           legislation_title,
+           legislation_year,
+           legislation_type,
+           actor
+         ) do
       {:ok, legislation_id} ->
         # Create offence record
         offence_attrs = %{
@@ -429,7 +434,30 @@ defmodule EhsEnforcement.Scraping.Mca.McaProsecutionProcessor do
     end
   end
 
-  defp find_or_create_legislation(title, year, type, actor) do
+  @doc """
+  Find or create legislation from a string (public API for AI parser).
+
+  Parses the legislation string to extract title, year, and type,
+  then finds existing or creates new legislation record.
+
+  Returns {:ok, legislation_record} or {:error, reason}
+  """
+  def find_or_create_legislation(legislation_str, actor \\ nil) when is_binary(legislation_str) do
+    # Parse legislation string to extract components
+    year = extract_legislation_year(legislation_str)
+    type = if String.contains?(legislation_str, "Regulation"), do: :regulation, else: :act
+
+    case find_or_create_legislation_record(legislation_str, year, type, actor) do
+      {:ok, legislation_id} ->
+        # Return the full legislation record
+        Ash.get(EhsEnforcement.Enforcement.Legislation, legislation_id)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp find_or_create_legislation_record(title, year, type, actor) do
     # Normalize title
     normalized_title = Utility.normalize_legislation_title(title)
 
