@@ -88,6 +88,16 @@ defmodule EhsEnforcement.Enforcement.Notice do
 
     attribute(:penalty_amount, :decimal, description: "SEPA monetary penalty amount (FMP/VMP)")
 
+    # FRA-specific fields (Fire & Rescue Authorities)
+    attribute :notice_status, :atom do
+      description "Current status of the notice (FRA: IN FORCE, COMPLIED, WITHDRAWN)"
+      constraints(one_of: [:in_force, :complied, :withdrawn, :appealed, :cancelled])
+    end
+
+    attribute :premises_type, :string do
+      description "Type of premises (FRA: SHOP, FACTORY WAREHOUSE, LICENSED PREMISES, etc.)"
+    end
+
     attribute(:last_synced_at, :utc_datetime)
 
     # EA-specific fields for environmental enforcement notices
@@ -169,6 +179,8 @@ defmodule EhsEnforcement.Enforcement.Notice do
         :url,
         :offence_breaches,
         :penalty_amount,
+        :notice_status,
+        :premises_type,
         :last_synced_at,
         :regulator_event_reference,
         :environmental_impact,
@@ -280,6 +292,8 @@ defmodule EhsEnforcement.Enforcement.Notice do
         :url,
         :offence_breaches,
         :penalty_amount,
+        :notice_status,
+        :premises_type,
         :last_synced_at,
         :regulator_event_reference,
         :environmental_impact,

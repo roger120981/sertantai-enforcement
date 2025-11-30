@@ -78,12 +78,14 @@ EhsEnforcement.Release.html
 EhsEnforcement.Repo.html
 EhsEnforcement.RetryLogic.html
 EhsEnforcement.Scraping.Agencies.Ea.html
+EhsEnforcement.Scraping.Agencies.Fra.html
 EhsEnforcement.Scraping.Agencies.Hse.html
 EhsEnforcement.Scraping.Agencies.Nrw.html
 EhsEnforcement.Scraping.Agencies.Sepa.html
 EhsEnforcement.Scraping.AgencyBehavior.html
 EhsEnforcement.Scraping.Api.EaCaseCoordinator.html
 EhsEnforcement.Scraping.Api.EaNoticeCoordinator.html
+EhsEnforcement.Scraping.Api.FraCoordinator.html
 EhsEnforcement.Scraping.Api.HseCaseCoordinator.html
 EhsEnforcement.Scraping.Api.HseNoticeCoordinator.html
 EhsEnforcement.Scraping.Api.NrwCoordinator.html
@@ -97,6 +99,10 @@ EhsEnforcement.Scraping.Ea.HistoricalScraper.html
 EhsEnforcement.Scraping.Ea.NoticeProcessor.ProcessedEaNotice.html
 EhsEnforcement.Scraping.Ea.NoticeProcessor.html
 EhsEnforcement.Scraping.Ea.NoticeScraper.html
+EhsEnforcement.Scraping.Fra.FraNoticeProcessor.ProcessedNotice.html
+EhsEnforcement.Scraping.Fra.FraNoticeProcessor.html
+EhsEnforcement.Scraping.Fra.FraNoticeScraper.ScrapedNotice.html
+EhsEnforcement.Scraping.Fra.FraNoticeScraper.html
 EhsEnforcement.Scraping.Hse.CaseProcessor.ProcessedCase.html
 EhsEnforcement.Scraping.Hse.CaseProcessor.html
 EhsEnforcement.Scraping.Hse.CaseScraper.ScrapedCase.html
@@ -212,8 +218,8 @@ dist/lato-latin-700-normal-2XVSBPG4.woff2
 dist/lato-latin-ext-400-normal-N27NCBWW.woff2
 dist/lato-latin-ext-700-normal-Q2L5DVMW.woff2
 dist/remixicon-QPNJX265.woff2
-dist/search_data-10952E7B.js
-dist/sidebar_items-0CD0CB8A.js
+dist/search_data-1E562830.js
+dist/sidebar_items-0563C106.js
 index.html
 readme.html
 search.html

@@ -33,6 +33,9 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
       :notice_body,
       :offence_action_type,
       :offence_breaches,
+      :notice_status,
+      :premises_type,
+      :compliance_date,
       :url,
       :source_metadata
     ]
@@ -47,8 +50,9 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
     Logger.debug("FRA: Processing notice for #{notice.responsible_person} at #{notice.address}")
 
     try do
-      # Generate deterministic regulator_id using UPRN for deduplication
-      regulator_id = generate_regulator_id(notice)
+      # Use UPRN as regulator_id - it's unique per property/notice combination
+      # Format: UPRN (e.g., "83224833") - simple and directly from source
+      regulator_id = notice.uprn || generate_fallback_id(notice)
 
       processed = %ProcessedNotice{
         regulator_id: regulator_id,
@@ -58,6 +62,9 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
         notice_body: build_notice_body(notice),
         offence_action_type: map_notice_type(notice.notice_type),
         offence_breaches: notice.additional_information,
+        notice_status: map_status(notice.status),
+        premises_type: notice.premises_type,
+        compliance_date: parse_date(notice.date_complied_with),
         url: "https://nfcc.org.uk/our-services/enforcement-register/",
         source_metadata: build_source_metadata(notice)
       }
@@ -140,6 +147,9 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
               notice_body: processed.notice_body,
               offence_action_type: processed.offence_action_type,
               offence_breaches: processed.offence_breaches,
+              notice_status: processed.notice_status,
+              premises_type: processed.premises_type,
+              compliance_date: processed.compliance_date,
               url: processed.url,
               agency_id: agency.id,
               offender_id: offender.id,
@@ -165,12 +175,9 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
 
   # Private Functions
 
-  defp generate_regulator_id(notice) do
-    # Use UPRN as primary identifier - it's unique per property
-    # Format: fra_{UPRN}_{YYYYMMDD}_{notice_type_initial}
-    # This allows multiple notices for the same property on different dates
-
-    uprn_part = notice.uprn || "unknown"
+  defp generate_fallback_id(notice) do
+    # Fallback ID when UPRN is not available
+    # Format: fra_{date}_{hash} for deduplication
 
     date_part =
       case parse_date(notice.issue_date) do
@@ -178,15 +185,30 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
         _ -> "00000000"
       end
 
-    type_initial =
-      case String.upcase(notice.notice_type || "") do
-        "PROHIBITION" -> "P"
-        "ENFORCEMENT" -> "E"
-        "ALTERATIONS" -> "A"
-        _ -> "X"
-      end
+    # Hash based on address and responsible person for uniqueness
+    hash_input = "#{notice.address}|#{notice.responsible_person}|#{notice.notice_type}"
 
-    "fra_#{uprn_part}_#{date_part}_#{type_initial}"
+    hash =
+      :crypto.hash(:md5, hash_input)
+      |> Base.encode16(case: :lower)
+      |> String.slice(0, 8)
+
+    "fra_#{date_part}_#{hash}"
+  end
+
+  defp map_status(nil), do: nil
+  defp map_status(""), do: nil
+
+  defp map_status(status) do
+    case String.upcase(String.trim(status)) do
+      "IN FORCE" -> :in_force
+      "COMPLIED" -> :complied
+      "COMPLIED WITH" -> :complied
+      "WITHDRAWN" -> :withdrawn
+      "APPEALED" -> :appealed
+      "CANCELLED" -> :cancelled
+      _ -> nil
+    end
   end
 
   defp build_offender_attrs(notice) do
@@ -232,18 +254,21 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
   end
 
   defp build_notice_body(notice) do
-    # Combine reasons and status into notice body
-    parts =
-      [
-        notice.reasons,
-        if(notice.status, do: "[Status: #{notice.status}]"),
-        if(notice.premises_type, do: "[Premises: #{notice.premises_type}]")
-      ]
-      |> Enum.reject(&is_nil/1)
+    # Notice body contains the reasons/details of the notice
+    # Status and premises_type are now stored in dedicated fields
+    normalize_text(notice.reasons)
+  end
 
-    case parts do
-      [] -> nil
-      _ -> Enum.join(parts, "\n\n")
+  defp normalize_text(nil), do: nil
+  defp normalize_text(""), do: nil
+
+  defp normalize_text(text) do
+    text
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+    |> case do
+      "" -> nil
+      normalized -> normalized
     end
   end
 

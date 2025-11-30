@@ -14,21 +14,33 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
       assert {:ok, %ProcessedNotice{} = processed} = FraNoticeProcessor.process_notice(scraped)
 
       assert processed.agency_code == :fra
-      assert processed.regulator_id =~ ~r/^fra_\d+_\d{8}_E$/
+      # regulator_id is now just the UPRN
+      assert processed.regulator_id == "83224833"
       assert processed.notice_date == ~D[2025-11-06]
       assert processed.offence_action_type == "FRA Enforcement Notice"
       assert processed.offender_attrs.name == "Usman Ahmed T/A F1 Tyres"
       assert processed.offender_attrs.country == "England"
+      assert processed.notice_status == :in_force
+      assert processed.premises_type == "FACTORY WAREHOUSE"
     end
 
-    test "generates deterministic regulator_id using UPRN" do
+    test "uses UPRN directly as regulator_id" do
       scraped = build_scraped_notice(%{uprn: "12345678"})
 
       {:ok, processed1} = FraNoticeProcessor.process_notice(scraped)
       {:ok, processed2} = FraNoticeProcessor.process_notice(scraped)
 
       assert processed1.regulator_id == processed2.regulator_id
-      assert processed1.regulator_id == "fra_12345678_20251106_E"
+      assert processed1.regulator_id == "12345678"
+    end
+
+    test "generates fallback ID when UPRN is nil" do
+      scraped = build_scraped_notice(%{uprn: nil})
+
+      {:ok, processed} = FraNoticeProcessor.process_notice(scraped)
+
+      # Fallback format: fra_{date}_{hash}
+      assert processed.regulator_id =~ ~r/^fra_\d{8}_[a-f0-9]{8}$/
     end
 
     test "maps notice types correctly" do
@@ -43,9 +55,28 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
       assert p1.offence_action_type == "FRA Prohibition Notice"
       assert p2.offence_action_type == "FRA Enforcement Notice"
       assert p3.offence_action_type == "FRA Alterations Notice"
-      assert p1.regulator_id =~ ~r/_P$/
-      assert p2.regulator_id =~ ~r/_E$/
-      assert p3.regulator_id =~ ~r/_A$/
+    end
+
+    test "maps status values correctly" do
+      in_force = build_scraped_notice(%{status: "IN FORCE"})
+      complied = build_scraped_notice(%{status: "COMPLIED"})
+      withdrawn = build_scraped_notice(%{status: "WITHDRAWN"})
+
+      {:ok, p1} = FraNoticeProcessor.process_notice(in_force)
+      {:ok, p2} = FraNoticeProcessor.process_notice(complied)
+      {:ok, p3} = FraNoticeProcessor.process_notice(withdrawn)
+
+      assert p1.notice_status == :in_force
+      assert p2.notice_status == :complied
+      assert p3.notice_status == :withdrawn
+    end
+
+    test "parses compliance date" do
+      scraped = build_scraped_notice(%{date_complied_with: "15/10/2025"})
+
+      {:ok, processed} = FraNoticeProcessor.process_notice(scraped)
+
+      assert processed.compliance_date == ~D[2025-10-15]
     end
 
     test "determines country from FRS name - Welsh services" do
@@ -97,7 +128,7 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
       assert is_nil(processed.offender_attrs.postcode)
     end
 
-    test "builds notice body from reasons and metadata" do
+    test "builds notice body from reasons only (status/premises in dedicated fields)" do
       scraped =
         build_scraped_notice(%{
           reasons: "Fire exits blocked. No fire alarm.",
@@ -107,9 +138,11 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
 
       {:ok, processed} = FraNoticeProcessor.process_notice(scraped)
 
-      assert processed.notice_body =~ "Fire exits blocked"
-      assert processed.notice_body =~ "[Status: IN FORCE]"
-      assert processed.notice_body =~ "[Premises: SHOP]"
+      # notice_body now only contains the reasons
+      assert processed.notice_body == "Fire exits blocked. No fire alarm."
+      # status and premises_type are in dedicated fields
+      assert processed.notice_status == :in_force
+      assert processed.premises_type == "SHOP"
     end
 
     test "parses DD/MM/YYYY date format" do
@@ -169,12 +202,16 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
     end
 
     test "creates notice in database", %{agency: _agency} do
-      scraped = build_scraped_notice(%{uprn: "test_#{System.unique_integer([:positive])}"})
+      uprn = "test_#{System.unique_integer([:positive])}"
+      scraped = build_scraped_notice(%{uprn: uprn})
 
       assert {:ok, notice} = FraNoticeProcessor.process_and_create_notice(scraped, nil)
 
-      assert notice.regulator_id =~ ~r/^fra_/
+      # regulator_id is now the UPRN directly
+      assert notice.regulator_id == uprn
       assert notice.offence_action_type == "FRA Enforcement Notice"
+      assert notice.notice_status == :in_force
+      assert notice.premises_type == "FACTORY WAREHOUSE"
       assert notice.agency_id != nil
       assert notice.offender_id != nil
     end
