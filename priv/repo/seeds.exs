@@ -51,7 +51,7 @@ defmodule Seeds do
       code: :nrw,
       name: "Natural Resources Wales",
       base_url: "https://naturalresources.wales",
-      enabled: false
+      enabled: true
     },
 
     # =====================================================
@@ -114,7 +114,7 @@ defmodule Seeds do
       code: :fra,
       name: "Fire and Rescue Authorities (NFCC)",
       base_url: "https://nfcc.org.uk",
-      enabled: false
+      enabled: true
     },
     %{
       code: :niea,
