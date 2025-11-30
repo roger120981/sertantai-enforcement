@@ -224,12 +224,7 @@ defmodule EhsEnforcement.Scraping.Nrw.NrwArticleParser do
       _ ->
         # Fall back to parsing the whole content with this offender
         case_data = parse_case_from_text(content, article)
-
-        if case_data do
-          %{case_data | offender_name: offender_name}
-        else
-          nil
-        end
+        %{case_data | offender_name: offender_name}
     end
   end
 
@@ -380,8 +375,9 @@ defmodule EhsEnforcement.Scraping.Nrw.NrwArticleParser do
 
   defp extract_costs_amount(text) do
     case Regex.run(@patterns.costs, text) do
-      [_, amount, nil] -> parse_currency(amount)
-      [_, nil, amount] -> parse_currency(amount)
+      [_, amount, ""] -> parse_currency(amount)
+      [_, "", amount] -> parse_currency(amount)
+      [_, amount1, amount2] -> parse_currency(amount1) || parse_currency(amount2)
       [_, amount] -> parse_currency(amount)
       _ -> nil
     end
@@ -389,16 +385,15 @@ defmodule EhsEnforcement.Scraping.Nrw.NrwArticleParser do
 
   defp extract_surcharge_amount(text) do
     case Regex.run(@patterns.surcharge, text) do
-      [_, amount, nil] -> parse_currency(amount)
-      [_, nil, amount] -> parse_currency(amount)
+      [_, amount, ""] -> parse_currency(amount)
+      [_, "", amount] -> parse_currency(amount)
+      [_, amount1, amount2] -> parse_currency(amount1) || parse_currency(amount2)
       [_, amount] -> parse_currency(amount)
       _ -> nil
     end
   end
 
-  defp parse_currency(nil), do: nil
-
-  defp parse_currency(amount_string) do
+  defp parse_currency(amount_string) when is_binary(amount_string) do
     amount_string
     |> String.replace(",", "")
     |> String.trim()
@@ -473,13 +468,11 @@ defmodule EhsEnforcement.Scraping.Nrw.NrwArticleParser do
     end
   end
 
-  defp truncate(nil, _), do: nil
-
   defp truncate(string, max_length) when byte_size(string) > max_length do
     String.slice(string, 0, max_length - 3) <> "..."
   end
 
-  defp truncate(string, _), do: string
+  defp truncate(string, _max_length), do: string
 
   defp empty_case?(%ParsedCase{offender_name: nil, fine_amount: nil, poca_amount: nil}), do: true
   defp empty_case?(_), do: false
