@@ -60,12 +60,16 @@ defmodule EhsEnforcement.Scraping.Nrw.NrwCaseProcessor do
       # Determine fine (use POCA if no regular fine)
       fine_amount = parsed_case.fine_amount || parsed_case.poca_amount
 
+      # For NRW court cases, action_date should be nil or same as hearing_date.
+      # The article_date is when NRW published the news (AFTER the court case),
+      # so it cannot be used as offence_action_date (would violate hearing >= action constraint).
+      # We set action_date to nil since we don't know when the offence occurred.
       processed = %ProcessedCase{
         regulator_id: regulator_id,
         agency_code: @nrw_agency_code,
         offender_attrs: build_offender_attrs(parsed_case),
         offence_hearing_date: parsed_case.hearing_date,
-        offence_action_date: parsed_case.article_date,
+        offence_action_date: nil,
         offence_fine: fine_amount,
         offence_costs: combined_costs,
         offence_result: parsed_case.offence_result,

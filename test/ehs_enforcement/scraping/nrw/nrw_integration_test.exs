@@ -316,7 +316,13 @@ defmodule EhsEnforcement.Scraping.Nrw.IntegrationTest do
       end
     end
 
-    test "stores article date as action date", %{agency: _agency} do
+    test "does not use article date as action date (article published after court)", %{
+      agency: _agency
+    } do
+      # Article date is when NRW published the news (AFTER the court case),
+      # so it should NOT be used as offence_action_date.
+      # Action date is set to nil for NRW court cases since we don't know
+      # when the offence originally occurred.
       article_date = ~D[2024-03-21]
 
       parsed =
@@ -327,7 +333,7 @@ defmodule EhsEnforcement.Scraping.Nrw.IntegrationTest do
 
       {:ok, case_record} = NrwCaseProcessor.process_and_create_case(parsed, nil)
 
-      assert case_record.offence_action_date == article_date
+      assert case_record.offence_action_date == nil
     end
   end
 
