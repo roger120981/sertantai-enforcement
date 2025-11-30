@@ -89,6 +89,6 @@ defmodule EhsEnforcement.Scraping.ProcessingLog do
     validate(compare(:items_failed, greater_than_or_equal_to: 0))
 
     # Validate agency is supported value
-    validate(attribute_in(:agency, [:hse, :ea, :sepa, :nrw, :fra, :onr, :orr]))
+    validate(attribute_in(:agency, [:hse, :ea, :sepa, :nrw, :fra, :mca, :onr, :orr]))
   end
 end

@@ -67,7 +67,7 @@ defmodule Seeds do
       code: :mca,
       name: "Maritime and Coastguard Agency",
       base_url: "https://www.gov.uk/government/organisations/maritime-and-coastguard-agency",
-      enabled: false
+      enabled: true
     },
     %{
       code: :caa,
