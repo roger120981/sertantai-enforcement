@@ -21,12 +21,13 @@
 
   // Form state
   let formData = {
-    agency: 'hse' as 'hse' | 'ea' | 'sepa',
-    database: 'notices' as 'notices' | 'convictions' | 'appeals' | 'penalties',
+    agency: 'hse' as 'hse' | 'ea' | 'sepa' | 'nrw',
+    database: 'notices' as 'notices' | 'convictions' | 'appeals' | 'penalties' | 'cases',
     startPage: 1 as number | string,
     maxPages: 5 as number | string,
     country: 'All',
     section: 'all' as 'all' | 'penalties' | 'undertakings' | 'costs_recovery',
+    limit: 20,
   }
 
   // Reset form values when agency changes (but only when not scraping)
@@ -48,6 +49,9 @@
     } else if (formData.agency === 'sepa') {
       formData.database = 'penalties'
       formData.section = 'all'
+    } else if (formData.agency === 'nrw') {
+      formData.database = 'cases'
+      formData.limit = 20
     }
   }
 
@@ -206,6 +210,13 @@
           from_date: formData.startPage as string,
           to_date: formData.maxPages as string,
         }
+      } else if (formData.agency === 'nrw') {
+        // NRW - news article scraping with limit
+        requestParams = {
+          agency: 'nrw',
+          database: 'cases',
+          limit: formData.limit,
+        }
       } else {
         // SEPA - single page scraping with section filter
         requestParams = {
@@ -346,6 +357,7 @@
               <option value="hse">HSE (Health & Safety Executive)</option>
               <option value="ea">Environment Agency (EA)</option>
               <option value="sepa">SEPA (Scottish Environment Protection Agency)</option>
+              <option value="nrw">NRW (Natural Resources Wales)</option>
             </select>
           </div>
 
@@ -389,6 +401,30 @@
             <div class="lg:col-span-2">
               <p class="text-sm text-gray-500 mt-6">
                 SEPA publishes all enforcement data on a single page. No pagination or date range needed.
+              </p>
+            </div>
+          {/if}
+
+          <!-- NRW Article Limit -->
+          {#if formData.agency === 'nrw'}
+            <div>
+              <label for="limit" class="block text-sm font-medium text-gray-700 mb-2">
+                Max Articles
+              </label>
+              <input
+                id="limit"
+                type="number"
+                min="1"
+                max="100"
+                bind:value={formData.limit}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
+              />
+            </div>
+            <div class="lg:col-span-2">
+              <p class="text-sm text-gray-500 mt-6">
+                NRW publishes enforcement data via news articles. AI parsing extracts case details from each article.
+                Articles may contain multiple defendants.
               </p>
             </div>
           {/if}

@@ -15,7 +15,7 @@
 
 | Agency | Domain | Enforcement Published | Data Access | Priority |
 |--------|--------|----------------------|-------------|----------|
-| **SEPA** | Environment (Scotland) | Yes - Public register | Web/API | **High** |
+| **SEPA** | Environment (Scotland) | Yes - Public register | Web | **High** |
 | **NRW** | Environment (Wales) | Yes - Public register | Web | **High** |
 | **NIEA** | Environment (N. Ireland) | Yes - Limited | Web | **Medium** |
 | **CAA** | Aviation Safety | Yes - Prosecutions list | HTML | **Medium** |

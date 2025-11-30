@@ -79,6 +79,11 @@ defmodule EhsEnforcement.AI.Client.Mock do
     content = get_message_content(system_message)
 
     cond do
+      # NRW article extraction
+      String.contains?(content || "", "Natural Resources Wales") or
+          String.contains?(content || "", "NRW") ->
+        generate_nrw_extraction_response()
+
       String.contains?(content || "", "regulation") ->
         generate_regulation_links_response()
 
@@ -194,6 +199,47 @@ defmodule EhsEnforcement.AI.Client.Mock do
       )
 
     Jason.encode!(tags)
+  end
+
+  defp generate_nrw_extraction_response do
+    Jason.encode!(%{
+      cases: [
+        %{
+          offender_name: "Benji and Co Limited",
+          offender_type: "company",
+          offender_location: "Powys",
+          hearing_date: "2025-10-14",
+          fine_amount: 40000,
+          costs_amount: 15000,
+          surcharge_amount: 2000,
+          total_amount: 57000,
+          poca_amount: nil,
+          offence_description:
+            "Operating a waste site without required environmental permit and depositing waste tyres without valid permit",
+          offence_result:
+            "Fined £10,000 for each of four offences, totalling £40,000, plus £15,000 prosecution costs and £2,000 victim surcharge",
+          legislation:
+            "Environmental Permitting (England and Wales) Regulations 2016; Environmental Protection Act 1990"
+        },
+        %{
+          offender_name: "Peter Rees",
+          offender_type: "individual",
+          offender_location: nil,
+          hearing_date: "2025-10-14",
+          fine_amount: 10000,
+          costs_amount: nil,
+          surcharge_amount: 2000,
+          total_amount: 12000,
+          poca_amount: nil,
+          offence_description:
+            "As company director, consenting to, being complicit in, or neglecting duties in connection with the company's unlawful activity",
+          offence_result: "Fined £10,000 and ordered to pay £2,000 victim surcharge",
+          legislation: "Environmental Protection Act 1990"
+        }
+      ],
+      extraction_notes:
+        "Two defendants - company and director - prosecuted together with separate penalties"
+    })
   end
 
   defp generate_full_enrichment_response do

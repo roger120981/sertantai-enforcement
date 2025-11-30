@@ -16,6 +16,7 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
   alias EhsEnforcement.Scraping.Api.HseCaseCoordinator
   alias EhsEnforcement.Scraping.Api.EaCaseCoordinator
   alias EhsEnforcement.Scraping.Api.SepaCoordinator
+  alias EhsEnforcement.Scraping.Api.NrwCoordinator
 
   @doc """
   Start a new scraping session.
@@ -239,16 +240,25 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
              database: "penalties",
              section: params["section"] || "all"
            }}
+
+        "nrw" ->
+          # NRW scrapes news articles, uses limit parameter
+          {:ok,
+           %{
+             agency: String.to_existing_atom(agency),
+             database: "cases",
+             limit: params["limit"] || 20
+           }}
       end
     end
   end
 
-  defp validate_agency(agency) when agency in ["hse", "ea", "sepa"], do: :ok
+  defp validate_agency(agency) when agency in ["hse", "ea", "sepa", "nrw"], do: :ok
 
   defp validate_agency(agency),
     do:
       {:error, :invalid_params,
-       "Invalid agency: #{inspect(agency)}. Must be 'hse', 'ea', or 'sepa'"}
+       "Invalid agency: #{inspect(agency)}. Must be 'hse', 'ea', 'sepa', or 'nrw'"}
 
   defp validate_database(database)
        when database in ["notices", "convictions", "appeals", "cases"],
@@ -332,6 +342,13 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
             start_page: 1,
             max_pages: 1
           })
+
+        :nrw ->
+          # NRW scrapes news articles
+          Map.merge(base_attributes, %{
+            start_page: 1,
+            max_pages: 1
+          })
       end
 
     ScrapeSession
@@ -403,6 +420,13 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
                 SepaCoordinator.scrape_batch(
                   session.session_id,
                   params.section,
+                  nil
+                )
+
+              {:nrw, "cases"} ->
+                NrwCoordinator.scrape_batch(
+                  session.session_id,
+                  params.limit,
                   nil
                 )
 

@@ -82,6 +82,7 @@ defmodule EhsEnforcement.AI.Client do
     case provider do
       :runpod -> EhsEnforcement.AI.Client.RunPod
       :openai -> EhsEnforcement.AI.Client.OpenAI
+      :ollama -> EhsEnforcement.AI.Client.Ollama
       :mock -> EhsEnforcement.AI.Client.Mock
       other -> raise "Unknown AI provider: #{inspect(other)}"
     end

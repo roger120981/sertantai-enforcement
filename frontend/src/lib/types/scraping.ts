@@ -63,7 +63,7 @@ export type SSEEvent =
 /**
  * Supported agencies
  */
-export type Agency = 'hse' | 'ea' | 'sepa'
+export type Agency = 'hse' | 'ea' | 'sepa' | 'nrw'
 
 /**
  * Scraping session (from API and ElectricSQL)
@@ -119,9 +119,18 @@ export interface SepaScrapingRequest {
 }
 
 /**
+ * API request for starting scraping - NRW
+ */
+export interface NrwScrapingRequest {
+  agency: 'nrw'
+  database: 'cases'
+  limit?: number
+}
+
+/**
  * Union type for all scraping requests
  */
-export type StartScrapingRequest = HseScrapingRequest | EaScrapingRequest | SepaScrapingRequest
+export type StartScrapingRequest = HseScrapingRequest | EaScrapingRequest | SepaScrapingRequest | NrwScrapingRequest
 
 /**
  * API response from start scraping
@@ -160,9 +169,10 @@ export interface ScrapingProgress {
  */
 export interface ScrapingFormData {
   agency: Agency
-  database: 'notices' | 'convictions' | 'appeals' | 'penalties'
+  database: 'notices' | 'convictions' | 'appeals' | 'penalties' | 'cases'
   startPage: number | string
   maxPages: number | string
   country: string
   section: 'all' | 'penalties' | 'undertakings' | 'costs_recovery'
+  limit: number
 }

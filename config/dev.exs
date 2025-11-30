@@ -9,6 +9,12 @@ config :ehs_enforcement, :frontend_url, "http://localhost:5173"
 # Ollama Configuration (RunPod)
 config :ehs_enforcement, :ollama_url, "https://u3nu19jne57pqq-11434.proxy.runpod.net"
 
+# AI Enrichment Configuration
+config :ehs_enforcement, :ai_enrichment,
+  provider: :ollama,
+  ollama_url: "https://u3nu19jne57pqq-11434.proxy.runpod.net",
+  ollama_model: "llama3.1:8b"
+
 # Debug Ash PubSub events
 config :ash, :pub_sub, debug?: true
 

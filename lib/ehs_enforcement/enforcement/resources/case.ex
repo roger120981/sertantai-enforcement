@@ -618,6 +618,72 @@ defmodule EhsEnforcement.Enforcement.Case do
       end)
     end
 
+    # ============================================================================
+    # NRW Scraping Actions
+    # ============================================================================
+
+    create :scrape_nrw_cases do
+      description("Scheduled scraping of NRW cases - weekly scrape of news articles")
+
+      argument(:limit, :integer, default: 20)
+
+      change(fn changeset, _context ->
+        limit = Ash.Changeset.get_argument(changeset, :limit)
+
+        # Generate a session ID for this scrape
+        session_id = Ecto.UUID.generate()
+
+        # Call the NRW coordinator directly
+        case EhsEnforcement.Scraping.Api.NrwCoordinator.scrape_batch(session_id, limit, nil) do
+          {:ok, result} ->
+            Ash.Changeset.add_error(changeset,
+              field: :scraping_result,
+              message:
+                "NRW scraping completed: #{result.created} cases created, #{result.updated} updated"
+            )
+
+          {:error, error} ->
+            Ash.Changeset.add_error(changeset,
+              field: :scraping_error,
+              message: "NRW scraping failed: #{inspect(error)}"
+            )
+        end
+      end)
+    end
+
+    create :handle_scrape_error_nrw do
+      description("Handle errors from scheduled NRW scraping jobs")
+
+      argument(:error_details, :map)
+      argument(:job_name, :string)
+      argument(:attempt_number, :integer)
+      argument(:limit, :integer)
+
+      change(fn changeset, _context ->
+        error_details = Ash.Changeset.get_argument(changeset, :error_details)
+        job_name = Ash.Changeset.get_argument(changeset, :job_name)
+        attempt_number = Ash.Changeset.get_argument(changeset, :attempt_number)
+        limit = Ash.Changeset.get_argument(changeset, :limit)
+
+        # Log the error for monitoring
+        require Logger
+
+        Logger.error("Scheduled NRW scraping job failed", %{
+          job_name: job_name,
+          attempt: attempt_number,
+          limit: limit,
+          error_details: error_details
+        })
+
+        # For now, just record the error - could extend to send notifications
+        Ash.Changeset.add_error(changeset,
+          field: :job_error,
+          message:
+            "NRW job #{job_name} failed on attempt #{attempt_number} with limit #{limit}: #{inspect(error_details)}"
+        )
+      end)
+    end
+
     read :duplicate_detection do
       description("Efficient duplicate checking by regulator_id for scraping operations")
 
@@ -762,6 +828,19 @@ defmodule EhsEnforcement.Enforcement.Case do
 
         scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.ScheduledScrapeEa)
       end
+
+      trigger :weekly_scrape_nrw do
+        action(:scrape_nrw_cases)
+
+        # Weekly on Tuesday at 5 AM (offset from HSE/EA scraping)
+        scheduler_cron("0 5 * * 2")
+        max_attempts(3)
+        queue(:scraping)
+        on_error(:handle_scrape_error_nrw)
+        worker_module_name(EhsEnforcement.Enforcement.Case.AshOban.Worker.WeeklyScrapeNrw)
+
+        scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.WeeklyScrapeNrw)
+      end
     end
   end
 
@@ -773,6 +852,7 @@ defmodule EhsEnforcement.Enforcement.Case do
     define(:scrape_hse_cases_deep)
     define(:scrape_ea_cases)
     define(:scrape_ea_cases_historical)
+    define(:scrape_nrw_cases)
     define(:duplicate_detection)
     define(:bulk_create)
   end
