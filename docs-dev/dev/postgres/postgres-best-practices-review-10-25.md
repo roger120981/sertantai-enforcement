@@ -2,7 +2,7 @@
 
 **Review Date**: 2025-10-24
 **PostgreSQL Version**: 14+ (Current production version)
-**Database**: `ehs_enforcement_dev`
+**Database**: `sertantai_enforcement_dev`
 
 ## Executive Summary
 

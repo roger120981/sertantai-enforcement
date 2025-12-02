@@ -220,7 +220,7 @@ docker build -t ehs-enforcement:test .
 
   # Create test environment file
   cat > .env.test << 'EOF'
-  DATABASE_URL=ecto://postgres:postgres@localhost:5432/ehs_enforcement_dev
+  DATABASE_URL=ecto://postgres:postgres@localhost:5432/sertantai_enforcement_dev
   SECRET_KEY_BASE=your_secret_key_here
   PHX_HOST=localhost
   PORT=4002

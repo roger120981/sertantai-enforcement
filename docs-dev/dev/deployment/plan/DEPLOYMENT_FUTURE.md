@@ -267,7 +267,7 @@ The Baserow integration infrastructure is ready via `--profile integration`. The
 
 3. Create PostgreSQL database sync:
    - Connect to: `postgres:5432` (Docker network)
-   - Database: `ehs_enforcement_dev`
+   - Database: `sertantai_enforcement_dev`
    - User/Password: `postgres/postgres`
 
 4. Verify data synchronization:

@@ -92,7 +92,7 @@ ccc5fef12efdb1ed | hse   | completed | 2              | 20          | 20        
 
 3. **Database Connection**
    - Verify `EhsEnforcement.Repo` configuration for dev environment
-   - Check if correct database being used (ehs_enforcement_dev vs test)
+   - Check if correct database being used (sertantai_enforcement_dev vs test)
    - Test manual Ash.create from IEx
 
 4. **Code Path Analysis**
@@ -126,7 +126,7 @@ ccc5fef12efdb1ed | hse   | completed | 2              | 20          | 20        
 - **Elixir**: 1.18.4
 - **Phoenix**: 1.7+
 - **Ash**: 3.0+
-- **Database**: PostgreSQL (ehs_enforcement_dev)
+- **Database**: PostgreSQL (sertantai_enforcement_dev)
 - **Port**: 4002
 
 ## Expected Behavior

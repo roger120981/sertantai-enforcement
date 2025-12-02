@@ -61,7 +61,7 @@ defmodule Seeds do
       code: :orr,
       name: "Office of Rail and Road",
       base_url: "https://www.orr.gov.uk",
-      enabled: false
+      enabled: true
     },
     %{
       code: :mca,
@@ -73,7 +73,7 @@ defmodule Seeds do
       code: :caa,
       name: "Civil Aviation Authority",
       base_url: "https://www.caa.co.uk",
-      enabled: false
+      enabled: true
     },
     %{
       code: :cqc,
@@ -92,7 +92,7 @@ defmodule Seeds do
       name: "Office for Product Safety and Standards",
       base_url:
         "https://www.gov.uk/government/organisations/office-for-product-safety-and-standards",
-      enabled: false
+      enabled: true
     },
     %{
       code: :gc,

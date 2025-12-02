@@ -280,7 +280,7 @@ All scripts respect environment variables and `config/dev.exs` settings:
 
 - **Database Port**: Default 5434 (Docker), 5432 (local)
 - **Phoenix Port**: 4002
-- **Database Name**: ehs_enforcement_dev
+- **Database Name**: sertantai_enforcement_dev
 - **Database User**: postgres
 - **Database Password**: postgres
 

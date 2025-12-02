@@ -193,7 +193,7 @@ If you prefer manual control:
 
 - **Host:** localhost
 - **Port:** 5434 (Docker container port, avoids conflicts)
-- **Database:** ehs_enforcement_dev
+- **Database:** sertantai_enforcement_dev
 - **Username:** postgres
 - **Password:** postgres
 - **Container:** ehs_enforcement_postgres
@@ -208,7 +208,7 @@ docker logs ehs_enforcement_postgres
 
 **Access PostgreSQL shell:**
 ```bash
-docker exec -it ehs_enforcement_postgres psql -U postgres -d ehs_enforcement_dev
+docker exec -it ehs_enforcement_postgres psql -U postgres -d sertantai_enforcement_dev
 ```
 
 **Stop and remove container:**

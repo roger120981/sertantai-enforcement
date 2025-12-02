@@ -684,6 +684,71 @@ defmodule EhsEnforcement.Enforcement.Case do
       end)
     end
 
+    # ============================================================================
+    # CAA Scraping Actions
+    # ============================================================================
+
+    create :scrape_caa_prosecutions do
+      description("Scheduled scraping of CAA prosecutions - monthly scrape of PDF reports")
+
+      argument(:years, {:array, :string}, default: nil)
+
+      change(fn changeset, _context ->
+        years = Ash.Changeset.get_argument(changeset, :years)
+
+        scrape_opts =
+          if years do
+            [data_type: :prosecutions, years: years]
+          else
+            [data_type: :prosecutions]
+          end
+
+        case EhsEnforcement.Scraping.Agencies.Caa.scrape_prosecutions(scrape_opts) do
+          {:ok, session_result} ->
+            Ash.Changeset.add_error(changeset,
+              field: :scraping_result,
+              message:
+                "CAA prosecutions scraping completed: #{session_result.cases_created} cases created, #{session_result.cases_exist_total} already exist"
+            )
+
+          {:error, error} ->
+            Ash.Changeset.add_error(changeset,
+              field: :scraping_error,
+              message: "CAA prosecutions scraping failed: #{inspect(error)}"
+            )
+        end
+      end)
+    end
+
+    create :handle_scrape_error_caa do
+      description("Handle errors from scheduled CAA scraping jobs")
+
+      argument(:error_details, :map)
+      argument(:job_name, :string)
+      argument(:attempt_number, :integer)
+
+      change(fn changeset, _context ->
+        error_details = Ash.Changeset.get_argument(changeset, :error_details)
+        job_name = Ash.Changeset.get_argument(changeset, :job_name)
+        attempt_number = Ash.Changeset.get_argument(changeset, :attempt_number)
+
+        # Log the error for monitoring
+        require Logger
+
+        Logger.error("Scheduled CAA scraping job failed", %{
+          job_name: job_name,
+          attempt: attempt_number,
+          error_details: error_details
+        })
+
+        Ash.Changeset.add_error(changeset,
+          field: :job_error,
+          message:
+            "CAA job #{job_name} failed on attempt #{attempt_number}: #{inspect(error_details)}"
+        )
+      end)
+    end
+
     read :duplicate_detection do
       description("Efficient duplicate checking by regulator_id for scraping operations")
 
@@ -841,6 +906,19 @@ defmodule EhsEnforcement.Enforcement.Case do
 
         scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.WeeklyScrapeNrw)
       end
+
+      trigger :monthly_scrape_caa do
+        action(:scrape_caa_prosecutions)
+
+        # Monthly on the 15th at 6 AM (offset from other scraping jobs)
+        scheduler_cron("0 6 15 * *")
+        max_attempts(3)
+        queue(:scraping)
+        on_error(:handle_scrape_error_caa)
+        worker_module_name(EhsEnforcement.Enforcement.Case.AshOban.Worker.MonthlyScrapeCAA)
+
+        scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.MonthlyScrapeCAA)
+      end
     end
   end
 
@@ -853,6 +931,7 @@ defmodule EhsEnforcement.Enforcement.Case do
     define(:scrape_ea_cases)
     define(:scrape_ea_cases_historical)
     define(:scrape_nrw_cases)
+    define(:scrape_caa_prosecutions)
     define(:duplicate_detection)
     define(:bulk_create)
   end

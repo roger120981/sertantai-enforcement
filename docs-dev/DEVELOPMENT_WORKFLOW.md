@@ -461,7 +461,7 @@ end
 
 ```bash
 # Connect to database
-psql -d ehs_enforcement_dev -U postgres
+psql -d sertantai_enforcement_dev -U postgres
 
 # Common queries
 \dt                          # List tables
@@ -562,10 +562,10 @@ EhsEnforcement.Enforcement.Metrics.refresh_all_metrics(:admin)
 
 ```bash
 # Check metrics table
-psql -d ehs_enforcement_dev -U postgres -c "SELECT COUNT(*) FROM metrics;"
+psql -d sertantai_enforcement_dev -U postgres -c "SELECT COUNT(*) FROM metrics;"
 
 # View metrics by period
-psql -d ehs_enforcement_dev -U postgres -c "
+psql -d sertantai_enforcement_dev -U postgres -c "
   SELECT period, agency_id, recent_cases_count, recent_notices_count, calculated_at
   FROM metrics
   ORDER BY period, agency_id
@@ -666,7 +666,7 @@ Create `.env` file:
 
 ```bash
 # Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ehs_enforcement_dev
+DATABASE_URL=postgresql://postgres:postgres@localhost:5434/sertantai_enforcement_dev
 
 # Airtable
 AT_UK_E_API_KEY=your_api_key_here

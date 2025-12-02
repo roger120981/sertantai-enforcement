@@ -49,7 +49,7 @@ Should return: `OK` (200 status)
 Connect to PostgreSQL:
 
 ```bash
-PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev
 ```
 
 Check for cases:
@@ -138,7 +138,7 @@ The server will start on http://localhost:5173
 4. **Test Real-time Sync**:
    ```bash
    # In another terminal, insert a test case
-   PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev
+   PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev
 
    INSERT INTO cases (
      id, case_reference, regulator_id, offence_result,
@@ -207,7 +207,7 @@ docker-compose -f docker-compose.dev.yml down
 docker-compose -f docker-compose.dev.yml up -d postgres electric
 
 # Verify wal_level
-PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev -c "SHOW wal_level;"
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev -c "SHOW wal_level;"
 ```
 
 ### TanStack DB Initialization Error
@@ -298,7 +298,7 @@ curl http://localhost:4002          # Phoenix (if running)
 curl http://localhost:5173          # Frontend
 
 # Database console
-PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev
 
 # View all Electric shapes
 curl http://localhost:3000/v1/shape/cases

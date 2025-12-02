@@ -21,7 +21,7 @@ Common issues and solutions for EHS Enforcement development.
 
 **Symptom:**
 ```
-** (Postgrex.Error) FATAL (invalid_catalog_name): database "ehs_enforcement_dev" does not exist
+** (Postgrex.Error) FATAL (invalid_catalog_name): database "sertantai_enforcement_dev" does not exist
 ```
 
 **Solutions:**
@@ -49,7 +49,7 @@ Common issues and solutions for EHS Enforcement development.
    # Default: localhost:5434, user: postgres, password: postgres
 
    # Test connection manually
-   psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev
+   psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev
    ```
 
 ---
@@ -66,7 +66,7 @@ Common issues and solutions for EHS Enforcement development.
 1. **Table already exists:**
    ```bash
    # Check existing tables
-   psql -d ehs_enforcement_dev -c "\dt"
+   psql -d sertantai_enforcement_dev -c "\dt"
 
    # If development, reset database
    mix ecto.reset
@@ -346,7 +346,7 @@ mix phx.server
 1. **Drop dependent objects first:**
    ```bash
    # Connect to database
-   psql -d ehs_enforcement_dev
+   psql -d sertantai_enforcement_dev
 
    # Find dependencies
    SELECT * FROM information_schema.table_constraints
@@ -385,7 +385,7 @@ mix phx.server
    ```bash
    # Mark migration as run without executing
    # WARNING: Only if you know what you're doing
-   psql -d ehs_enforcement_dev
+   psql -d sertantai_enforcement_dev
    INSERT INTO schema_migrations VALUES ('20240115120000');
    ```
 

@@ -164,7 +164,46 @@ config :ehs_enforcement, :ai_enrichment,
 
 ## RunPod Endpoint Setup
 
-RunPod serverless endpoints expose OpenAI-compatible APIs:
+### Option 1: Ollama Pod (Current Setup for CAA AI Parser)
+
+For PDF parsing and structured extraction, we use an **Ollama pod** which provides a simpler, more cost-effective setup:
+
+**Template:** "Better Ollama CUDA12" (from RunPod community templates)
+- Includes CUDA 12.4 drivers bundled (important - some templates lack GPU drivers)
+- Recommended GPU: RTX 4000 Ada (20GB, $0.20/hr) - sufficient for 8B models
+- Model: `llama3.1:8b` (Q4_K_M quantization, ~5GB)
+
+**Endpoint format:**
+```
+https://{pod-id}-11434.proxy.runpod.net
+```
+
+**API (native Ollama, not OpenAI-compatible):**
+- `GET /api/tags` - List models
+- `POST /api/generate` - Generate completion
+- `POST /api/chat` - Chat completion
+
+**Setup steps:**
+1. Create RunPod API key (Settings → API Keys → Read/Write for both graphql and ai)
+2. Deploy "Ollama NVIDIA CUDA" template with 24GB+ GPU
+3. Pull model in pod terminal: `ollama pull llama3.1:8b`
+4. Set environment variables (in `.env.local`, NOT committed):
+   ```bash
+   RUNPOD_ENDPOINT=https://{pod-id}-11434.proxy.runpod.net  # NO trailing slash
+   RUNPOD_API_KEY=rpa_xxxxx
+   ```
+
+**Test connection:**
+```bash
+curl -s "$RUNPOD_ENDPOINT/api/tags"  # Should list models
+curl -s "$RUNPOD_ENDPOINT/api/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "llama3.1:8b", "prompt": "Hello", "stream": false}'
+```
+
+### Option 2: RunPod Serverless (OpenAI-compatible)
+
+For high-volume production use, RunPod serverless endpoints expose OpenAI-compatible APIs:
 
 ```
 https://api.runpod.ai/v2/{endpoint_id}/openai/v1/chat/completions
@@ -174,15 +213,49 @@ Headers required:
 - `Authorization: Bearer {RUNPOD_API_KEY}`
 - `Content-Type: application/json`
 
+### Environment Variables
+
+Store in `.env.local` (gitignored):
+```bash
+# For Ollama pod (NO trailing slash!)
+RUNPOD_ENDPOINT=https://{pod-id}-11434.proxy.runpod.net
+RUNPOD_API_KEY=rpa_xxxxx
+
+# Provider selection - use 'ollama' for Ollama pods
+AI_ENRICHMENT_PROVIDER=ollama  # or: runpod, openai, mock
+```
+
+**Important:** 
+- Never commit actual endpoint URLs or API keys to version control
+- No trailing slash on `RUNPOD_ENDPOINT` (causes redirect issues)
+- The `ollama` provider uses native Ollama API, `runpod` uses OpenAI-compatible API
+
+### Verified Working Configuration (Dec 2025)
+
+Successfully tested with CAA AI PDF parser:
+- **Template:** Better Ollama CUDA12
+- **GPU:** RTX 4000 Ada (20GB VRAM, $0.20/hr)
+- **Model:** llama3.1:8b
+- **Performance:** ~24 seconds to parse 7500 chars of PDF text, extracted 6 prosecutions
+
 ## Troubleshooting
 
 **"Connection refused" errors:**
 - Verify RunPod endpoint is active (not scaled to zero)
-- Check endpoint URL format includes `/openai/v1`
+- For OpenAI-compatible endpoints, check URL format includes `/openai/v1`
+
+**"nvidia-smi: command not found" or "Bad address" errors:**
+- GPU drivers not installed - use "Better Ollama CUDA12" template instead
+- Some templates (like "Ollama NVIDIA CUDA") may not include drivers
+
+**Model loading errors ("read error: Bad address"):**
+- Try re-pulling the model: `ollama rm llama3.1:8b && ollama pull llama3.1:8b`
+- Check GPU has sufficient VRAM (llama3.1:8b needs ~8-10GB)
 
 **Timeout errors:**
 - Increase `timeout_ms` for large models (70B+)
 - Consider cold start time for serverless endpoints
+- Default timeout is 120s in dev.exs
 
 **Invalid JSON responses:**
 - Strengthen system prompt JSON requirements
@@ -191,7 +264,10 @@ Headers required:
 
 **Mock adapter not used in tests:**
 - Ensure `AI_ENRICHMENT_PROVIDER` is unset or set to `mock`
-- Default is `:mock` when env var not present
+- Default is `:ollama` in dev, `:mock` in test environment
+
+**Redirect issues (301 Moved Permanently):**
+- Remove trailing slash from `RUNPOD_ENDPOINT`
 
 ## Related Documentation
 

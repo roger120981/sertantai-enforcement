@@ -209,7 +209,7 @@ Create a `.env` file (not tracked in Git):
 AT_UK_E_API_KEY=your_airtable_api_key
 
 # Database (if not using defaults)
-DATABASE_URL=postgresql://postgres:postgres@localhost:5434/ehs_enforcement_dev
+DATABASE_URL=postgresql://postgres:postgres@localhost:5434/sertantai_enforcement_dev
 
 # Secret key (for sessions)
 SECRET_KEY_BASE=your_secret_key_here

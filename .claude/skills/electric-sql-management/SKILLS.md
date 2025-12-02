@@ -129,7 +129,7 @@ Electric only syncs tables explicitly added to the Postgres publication.
 ### Check Current Publication
 
 ```bash
-PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev -c \
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev -c \
   "SELECT * FROM pg_publication_tables WHERE pubname = 'electric_publication_default';"
 ```
 
@@ -139,7 +139,7 @@ When adding new tables, recreate the publication:
 
 ```bash
 # Drop and recreate publication with all tables
-PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev -c \
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev -c \
   "DROP PUBLICATION IF EXISTS electric_publication_default;
    CREATE PUBLICATION electric_publication_default FOR TABLE legislation, offenders, cases, notices, agencies;"
 
@@ -227,7 +227,7 @@ docker logs ehs_enforcement_electric --tail=100
 docker restart ehs_enforcement_electric
 
 # If still unhealthy, check database connection:
-docker exec -it ehs_enforcement_postgres psql -U postgres -d ehs_enforcement_dev -c "SELECT 1;"
+docker exec -it ehs_enforcement_postgres psql -U postgres -d sertantai_enforcement_dev -c "SELECT 1;"
 ```
 
 ### Issue: Browser Shows "Offline" or "No Data"
@@ -276,7 +276,7 @@ docker-compose up -d       # Recreates all containers safely
 ```yaml
 electric:
   environment:
-    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ehs_enforcement_dev
+    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sertantai_enforcement_dev
     ELECTRIC_INSECURE: "true"  # Dev only!
     PG_PROXY_PASSWORD: proxy_password
 ```
@@ -297,7 +297,7 @@ MIX_ENV=dev mix ecto.migrate
 ssh sertantai-hz "docker exec infrastructure-postgres-1 pg_dump -U postgres -d ehs_enforcement_prod -t cases -t offenders -t agencies --data-only --column-inserts" > /tmp/prod_data.sql
 
 # Import to dev:
-PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev < /tmp/prod_data.sql
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev < /tmp/prod_data.sql
 ```
 
 ## Quick Reference Card

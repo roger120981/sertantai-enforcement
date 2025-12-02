@@ -522,7 +522,7 @@ Output format (strict JSON):
 
 ```bash
 # Export test dataset to JSON for evaluation
-psql -h localhost -p 5434 -U postgres -d ehs_enforcement_dev -c \
+psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev -c \
 "COPY (
   SELECT row_to_json(t) FROM (
     SELECT id, case_reference, offence_result, offence_fine,

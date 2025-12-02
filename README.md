@@ -92,7 +92,7 @@ docker compose -f docker-compose.dev.yml --profile integration up -d
 ### Configuration
 
 - **Port:** 4002 (matches production)
-- **Database:** ehs_enforcement_dev
+- **Database:** sertantai_enforcement_dev
 - **Environment:** .env.dev (create from .env.dev.example)
 - **API Keys:** Configure GitHub OAuth in .env.dev
 

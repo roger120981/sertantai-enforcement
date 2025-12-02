@@ -89,10 +89,10 @@ docker compose -f docker-compose.dev.yml logs -f postgres
 
 ```bash
 # Connect to PostgreSQL
-docker compose -f docker-compose.dev.yml exec postgres psql -U postgres -d ehs_enforcement_dev
+docker compose -f docker-compose.dev.yml exec postgres psql -U postgres -d sertantai_enforcement_dev
 
 # Or from host
-psql postgresql://postgres:postgres@localhost:5434/ehs_enforcement_dev
+psql postgresql://postgres:postgres@localhost:5434/sertantai_enforcement_dev
 
 # Run migrations (in container)
 docker compose -f docker-compose.dev.yml exec app /app/bin/ehs_enforcement eval "EhsEnforcement.Release.migrate"
@@ -127,7 +127,7 @@ Understanding these differences helps ensure smooth deployments:
 | Aspect | Development | Production |
 |--------|-------------|------------|
 | **Port** | 4002 (host accessible) | 4002 (internal, proxied) |
-| **Database** | `ehs_enforcement_dev` | `ehs_enforcement_prod` |
+| **Database** | `sertantai_enforcement_dev` | `ehs_enforcement_prod` |
 | **Database Host** | `localhost:5434` (Mode 1) or `postgres` (Mode 2) | `postgres` (Docker network) |
 | **Domain** | `localhost:4002` | `legal.sertantai.com` |
 | **SSL** | HTTP only | HTTPS via Let's Encrypt |

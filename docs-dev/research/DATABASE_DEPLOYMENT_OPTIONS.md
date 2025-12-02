@@ -99,7 +99,7 @@ services:
   app:
     build: .
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ehs_enforcement_dev
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sertantai_enforcement_dev
 ```
 
 ```yaml

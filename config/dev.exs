@@ -7,21 +7,22 @@ config :ehs_enforcement, :environment, :dev
 config :ehs_enforcement, :frontend_url, "http://localhost:5173"
 
 # Ollama Configuration (RunPod)
-config :ehs_enforcement, :ollama_url, "https://u3nu19jne57pqq-11434.proxy.runpod.net"
+# Set RUNPOD_ENDPOINT in .env.local (not committed to git)
+config :ehs_enforcement, :ollama_url, System.get_env("RUNPOD_ENDPOINT")
 
 # AI Enrichment Configuration
 # Provider can be overridden with AI_ENRICHMENT_PROVIDER env var
 # Supports: :runpod, :ollama, :openai, :mock
 config :ehs_enforcement, :ai_enrichment,
-  provider: String.to_atom(System.get_env("AI_ENRICHMENT_PROVIDER") || "mock"),
+  provider: String.to_atom(System.get_env("AI_ENRICHMENT_PROVIDER") || "ollama"),
   # RunPod configuration (OpenAI-compatible API)
   runpod_api_key: System.get_env("RUNPOD_API_KEY"),
   runpod_endpoint: System.get_env("RUNPOD_ENDPOINT"),
-  # Ollama configuration
-  ollama_url: System.get_env("OLLAMA_URL") || "https://u3nu19jne57pqq-11434.proxy.runpod.net",
+  # Ollama configuration (using RUNPOD_ENDPOINT for Ollama pod)
+  ollama_url: System.get_env("RUNPOD_ENDPOINT"),
   ollama_model: System.get_env("OLLAMA_MODEL") || "llama3.1:8b",
   # Shared settings
-  timeout_ms: String.to_integer(System.get_env("AI_ENRICHMENT_TIMEOUT_MS") || "60000"),
+  timeout_ms: String.to_integer(System.get_env("AI_ENRICHMENT_TIMEOUT_MS") || "120000"),
   max_retries: String.to_integer(System.get_env("AI_ENRICHMENT_MAX_RETRIES") || "3")
 
 # Debug Ash PubSub events

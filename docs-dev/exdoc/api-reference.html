@@ -12,7 +12,7 @@
 
     <link rel="stylesheet" href="dist/html-elixir-KV3YOVJ3.css" />
 
-    <script defer src="dist/sidebar_items-1B333C9F.js"></script>
+    <script defer src="dist/sidebar_items-51560405.js"></script>
     <script defer src="docs_config.js"></script>
     <script defer src="dist/html-DPJLHKSM.js"></script>
 
@@ -826,6 +826,24 @@ circuit breaker patterns, rate limiting, and performance monitoring.</p></div>
 </div>
 <div class="summary-row">
   <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Agencies.Opss.html" translate="no">EhsEnforcement.Scraping.Agencies.Opss</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>OPSS-specific scraping implementation following the AgencyBehavior pattern.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Agencies.Orr.html" translate="no">EhsEnforcement.Scraping.Agencies.Orr</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>ORR-specific scraping implementation following the AgencyBehavior pattern.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
     <a href="EhsEnforcement.Scraping.Agencies.Sepa.html" translate="no">EhsEnforcement.Scraping.Agencies.Sepa</a>
 
   </div>
@@ -1229,6 +1247,159 @@ Handles scraping of HSE enforcement notice data from the HSE website with rate l
   </div>
 
     <div class="summary-synopsis"><p>Struct representing a scraped NRW news article</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Opss.OpssCaseProcessor.html" translate="no">EhsEnforcement.Scraping.Opss.OpssCaseProcessor</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>OPSS case (prosecution) processing pipeline - transforms scraped enforcement actions for Ash Case resource creation.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Opss.OpssCaseProcessor.ProcessedCase.html" translate="no">EhsEnforcement.Scraping.Opss.OpssCaseProcessor.ProcessedCase</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a prosecution ready for Ash Case resource creation</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Opss.OpssEnforcementScraper.html" translate="no">EhsEnforcement.Scraping.Opss.OpssEnforcementScraper</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Office for Product Safety and Standards (OPSS) enforcement action scraper.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Opss.OpssEnforcementScraper.ScrapedAction.html" translate="no">EhsEnforcement.Scraping.Opss.OpssEnforcementScraper.ScrapedAction</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a scraped OPSS enforcement action</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Opss.OpssNoticeProcessor.html" translate="no">EhsEnforcement.Scraping.Opss.OpssNoticeProcessor</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>OPSS notice processing pipeline - transforms scraped enforcement actions for Ash Notice resource creation.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Opss.OpssNoticeProcessor.ProcessedNotice.html" translate="no">EhsEnforcement.Scraping.Opss.OpssNoticeProcessor.ProcessedNotice</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a notice ready for Ash Notice resource creation</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrAiCaseProcessor.html" translate="no">EhsEnforcement.Scraping.Orr.OrrAiCaseProcessor</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Processes AI-parsed ORR prosecution cases and creates database records.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrAiPdfParser.html" translate="no">EhsEnforcement.Scraping.Orr.OrrAiPdfParser</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>AI-powered parser for ORR prosecution PDF documents.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrAiPdfParser.ParsedCase.html" translate="no">EhsEnforcement.Scraping.Orr.OrrAiPdfParser.ParsedCase</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a parsed ORR prosecution case from a PDF</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrNoticeProcessor.html" translate="no">EhsEnforcement.Scraping.Orr.OrrNoticeProcessor</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>ORR notice processing pipeline - transforms scraped notices for Ash Notice resource creation.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrNoticeProcessor.ProcessedNotice.html" translate="no">EhsEnforcement.Scraping.Orr.OrrNoticeProcessor.ProcessedNotice</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a notice ready for Ash Notice resource creation</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrNoticeScraper.html" translate="no">EhsEnforcement.Scraping.Orr.OrrNoticeScraper</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Office of Rail and Road (ORR) notice scraping service.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrNoticeScraper.ScrapedNotice.html" translate="no">EhsEnforcement.Scraping.Orr.OrrNoticeScraper.ScrapedNotice</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a scraped ORR notice before processing</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrProsecutionProcessor.html" translate="no">EhsEnforcement.Scraping.Orr.OrrProsecutionProcessor</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>ORR prosecution processing pipeline - transforms scraped data for Ash resource creation.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrProsecutionProcessor.ProcessedProsecution.html" translate="no">EhsEnforcement.Scraping.Orr.OrrProsecutionProcessor.ProcessedProsecution</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a prosecution ready for Ash Case resource creation</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrProsecutionScraper.html" translate="no">EhsEnforcement.Scraping.Orr.OrrProsecutionScraper</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Office of Rail and Road (ORR) prosecution scraping service.</p></div>
+
+</div>
+<div class="summary-row">
+  <div class="summary-signature">
+    <a href="EhsEnforcement.Scraping.Orr.OrrProsecutionScraper.ScrapedProsecution.html" translate="no">EhsEnforcement.Scraping.Orr.OrrProsecutionScraper.ScrapedProsecution</a>
+
+  </div>
+
+    <div class="summary-synopsis"><p>Struct representing a scraped ORR prosecution before processing</p></div>
 
 </div>
 <div class="summary-row">
