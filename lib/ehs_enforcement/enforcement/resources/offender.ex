@@ -595,17 +595,23 @@ defmodule EhsEnforcement.Enforcement.Offender do
           "❌ Offender creation failed: #{attrs[:name]} - #{extract_error_message(error)}"
         )
 
-        # Handle race condition - try to find again
+        # Handle identity collision - the offender exists but possibly with different postcode
+        # First try exact match (name + postcode)
         case EhsEnforcement.Enforcement.get_offender_by_name_and_postcode(
                attrs.name,
                attrs[:postcode]
              ) do
           {:ok, offender} ->
             Logger.info(
-              "♻️ Found existing offender after race condition: #{offender.name} (ID: #{offender.id})"
+              "♻️ Found existing offender (exact match): #{offender.name} (ID: #{offender.id})"
             )
 
             {:ok, offender}
+
+          {:error, %Ash.Error.Query.NotFound{}} ->
+            # Postcode mismatch - try finding by normalized name only
+            # This handles cases like "Diocese of Leeds" with multiple properties
+            find_offender_by_normalized_name(attrs[:name])
 
           error ->
             Logger.error("❌ Failed to find offender after creation error: #{inspect(error)}")
@@ -617,6 +623,39 @@ defmodule EhsEnforcement.Enforcement.Offender do
         error
     end
   end
+
+  defp find_offender_by_normalized_name(name) when is_binary(name) do
+    require Logger
+    require Ash.Query
+
+    normalized = normalize_company_name(name)
+
+    Logger.debug("Looking up offender by normalized name: #{normalized}")
+
+    # Query by normalized_name directly since that's what the identity uses
+    EhsEnforcement.Enforcement.Offender
+    |> Ash.Query.filter(normalized_name == ^normalized)
+    |> Ash.Query.limit(1)
+    |> Ash.read_one()
+    |> case do
+      {:ok, nil} ->
+        Logger.warning("❌ No offender found with normalized name: #{normalized}")
+        {:error, %Ash.Error.Query.NotFound{}}
+
+      {:ok, offender} ->
+        Logger.info(
+          "♻️ Found existing offender by normalized name: #{offender.name} (ID: #{offender.id})"
+        )
+
+        {:ok, offender}
+
+      error ->
+        Logger.error("❌ Error looking up offender by normalized name: #{inspect(error)}")
+        error
+    end
+  end
+
+  defp find_offender_by_normalized_name(_), do: {:error, %Ash.Error.Query.NotFound{}}
 
   defp find_best_match([], _attrs), do: nil
 
