@@ -4,7 +4,7 @@ defmodule EhsEnforcement.Scraping.Orr.OrrNoticeScraperTest do
   alias EhsEnforcement.Scraping.Orr.OrrNoticeScraper
   alias EhsEnforcement.Scraping.Orr.OrrNoticeScraper.ScrapedNotice
 
-  @fixtures_path "test/support/fixtures/orr"
+  @fixtures_path "test/fixtures/orr"
 
   describe "parse_notices_page/4 with improvement notices fixture" do
     setup do

@@ -14,7 +14,7 @@ defmodule EhsEnforcement.Scraping.HseProgressTest do
   alias EhsEnforcement.Scraping.Agencies.Hse, as: HseAgency
   alias EhsEnforcement.Scraping.ScrapeSession
 
-  @fixture_path Path.join([__DIR__, "../..", "support", "fixtures", "hse_notices.json"])
+  @fixture_path Path.join([__DIR__, "../..", "fixtures", "hse", "hse_notices.json"])
 
   setup do
     # Load fixture data

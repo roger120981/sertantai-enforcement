@@ -1,0 +1,46 @@
+{
+  "draw": 1,
+  "recordsTotal": "7723",
+  "recordsFiltered": "2145",
+  "data": [
+    [
+      "10012345678",
+      "London Fire Brigade",
+      "01/11/2025",
+      "PROHIBITION",
+      "RESIDENTIAL",
+      "IN FORCE",
+      "Chicken Cottage, 196-198 Alma Road, Bournemouth, BH9 1AJ",
+      "ABC Property Ltd",
+      "",
+      "A8,A9,A11",
+      "Serious risk to life identified"
+    ],
+    [
+      "98765432101",
+      "Tyne and Wear",
+      "01/10/2025",
+      "PROHIBITION",
+      "HMO",
+      "WITHDRAWN",
+      "45 Westgate Road, Newcastle, NE1 1SA",
+      "Northern Properties Ltd",
+      "",
+      "A8,A9,A11,A13,A14,A15,A17",
+      "Notice withdrawn following appeal"
+    ],
+    [
+      "55566677788",
+      "West Midlands",
+      "15/09/2025",
+      "PROHIBITION",
+      "HOTEL",
+      "IN FORCE",
+      "Grand Hotel, 1 Main Street, Birmingham, B1 1AA",
+      "Hospitality Group PLC",
+      "",
+      "A8,A9,A11,A13,A14",
+      ""
+    ]
+  ]
+}

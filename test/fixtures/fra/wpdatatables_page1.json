@@ -1,0 +1,72 @@
+{
+  "draw": 1,
+  "recordsTotal": "7723",
+  "recordsFiltered": "7723",
+  "data": [
+    [
+      "83224833",
+      "West Yorkshire",
+      "06/11/2025",
+      "ENFORCEMENT",
+      "FACTORY WAREHOUSE",
+      "IN FORCE",
+      "F1 Tyres, Ratcliffe Mills, Forge Lane, Thornhill Lees, Dewsbury, WF12 9BU",
+      "Usman Ahmed T/A F1 Tyres",
+      "",
+      "A8,A9,A11,A13,A14,A15,A17,A19,A21",
+      ""
+    ],
+    [
+      "10012345678",
+      "London Fire Brigade",
+      "01/11/2025",
+      "PROHIBITION",
+      "RESIDENTIAL",
+      "IN FORCE",
+      "Chicken Cottage, 196-198 Alma Road, Bournemouth\r\n, BH9 1AJ",
+      "ABC Property Ltd",
+      "",
+      "A8,A9,A11",
+      "Serious risk to life identified"
+    ],
+    [
+      "",
+      "Greater Manchester",
+      "28/10/2025",
+      "ALTERATIONS",
+      "OFFICE",
+      "IN FORCE",
+      "Unit 5, Industrial Estate, Manchester, M1 2AB",
+      "XYZ Holdings",
+      "",
+      "A9,A14",
+      ""
+    ],
+    [
+      "45678901234",
+      "Merseyside",
+      "15/10/2025",
+      "ENFORCEMENT",
+      "RETAIL",
+      "COMPLIED",
+      "123 High Street, Liverpool, L1 1AA",
+      "Smith & Sons Retail",
+      "01/11/2025",
+      "A8,A11,A15",
+      "Compliance achieved within deadline"
+    ],
+    [
+      "98765432101",
+      "Tyne and Wear",
+      "01/10/2025",
+      "PROHIBITION",
+      "HMO",
+      "WITHDRAWN",
+      "45 Westgate Road, Newcastle, NE1 1SA",
+      "Northern Properties Ltd",
+      "",
+      "A8,A9,A11,A13,A14,A15,A17",
+      "Notice withdrawn following appeal"
+    ]
+  ]
+}

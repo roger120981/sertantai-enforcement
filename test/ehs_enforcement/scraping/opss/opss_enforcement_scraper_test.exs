@@ -3,7 +3,7 @@ defmodule EhsEnforcement.Scraping.Opss.OpssEnforcementScraperTest do
 
   alias EhsEnforcement.Scraping.Opss.OpssEnforcementScraper
 
-  @fixtures_path "test/support/fixtures/opss"
+  @fixtures_path "test/fixtures/opss"
 
   describe "parse_enforcement_page/2 with Oct 2024 - Mar 2025 fixture" do
     setup do

@@ -4,7 +4,7 @@ defmodule EhsEnforcement.Scraping.Orr.OrrProsecutionScraperTest do
   alias EhsEnforcement.Scraping.Orr.OrrProsecutionScraper
   alias EhsEnforcement.Scraping.Orr.OrrProsecutionScraper.ScrapedProsecution
 
-  @fixtures_path "test/support/fixtures/orr"
+  @fixtures_path "test/fixtures/orr"
 
   describe "parse_prosecutions_page/2 with full fixture" do
     setup do

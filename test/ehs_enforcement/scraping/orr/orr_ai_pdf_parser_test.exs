@@ -4,7 +4,7 @@ defmodule EhsEnforcement.Scraping.Orr.OrrAiPdfParserTest do
   alias EhsEnforcement.Scraping.Orr.OrrAiPdfParser
   alias EhsEnforcement.Scraping.Orr.OrrAiPdfParser.ParsedCase
 
-  @fixtures_path "test/support/fixtures/orr"
+  @fixtures_path "test/fixtures/orr"
 
   describe "pdf_urls_for_year/1" do
     test "returns URLs for 2021" do
