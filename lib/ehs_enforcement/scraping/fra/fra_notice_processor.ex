@@ -50,9 +50,10 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
     Logger.debug("FRA: Processing notice for #{notice.responsible_person} at #{notice.address}")
 
     try do
-      # Use UPRN as regulator_id - it's unique per property/notice combination
-      # Format: UPRN (e.g., "83224833") - simple and directly from source
-      regulator_id = notice.uprn || generate_fallback_id(notice)
+      # Build regulator_id from UPRN + notice_type + date for uniqueness
+      # Same property can have multiple notice types (e.g., PROHIBITION + ENFORCEMENT)
+      # and multiple notices of the same type on different dates
+      regulator_id = build_regulator_id(notice)
 
       processed = %ProcessedNotice{
         regulator_id: regulator_id,
@@ -175,25 +176,54 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
 
   # Private Functions
 
-  defp generate_fallback_id(notice) do
-    # Fallback ID when UPRN is not available
-    # Format: fra_{date}_{hash} for deduplication
+  defp build_regulator_id(notice) do
+    # Build a unique regulator_id from UPRN + notice_type + date
+    # This ensures uniqueness because:
+    # - Same property can have multiple notice types (PROHIBITION, ENFORCEMENT, ALTERATIONS)
+    # - Same property+type can have notices on different dates
+    # Format: {UPRN}_{TYPE}_{YYYYMMDD} e.g., "83224833_ENF_20251106"
 
-    date_part =
-      case parse_date(notice.issue_date) do
-        %Date{} = date -> Calendar.strftime(date, "%Y%m%d")
-        _ -> "00000000"
-      end
+    uprn = notice.uprn || "0"
+    type_code = notice_type_code(notice.notice_type)
+    date_part = format_date_for_id(notice.issue_date)
 
-    # Hash based on address and responsible person for uniqueness
-    hash_input = "#{notice.address}|#{notice.responsible_person}|#{notice.notice_type}"
+    # For UPRN "0" (missing), add a hash for uniqueness
+    if uprn == "0" do
+      hash = generate_address_hash(notice)
+      "#{uprn}_#{type_code}_#{date_part}_#{hash}"
+    else
+      "#{uprn}_#{type_code}_#{date_part}"
+    end
+  end
 
-    hash =
-      :crypto.hash(:md5, hash_input)
-      |> Base.encode16(case: :lower)
-      |> String.slice(0, 8)
+  defp notice_type_code(nil), do: "UNK"
 
-    "fra_#{date_part}_#{hash}"
+  defp notice_type_code(type) do
+    case String.upcase(type) do
+      "PROHIBITION" -> "PRO"
+      "ENFORCEMENT" -> "ENF"
+      "ALTERATIONS" -> "ALT"
+      _ -> "OTH"
+    end
+  end
+
+  defp format_date_for_id(nil), do: "00000000"
+  defp format_date_for_id(""), do: "00000000"
+
+  defp format_date_for_id(date_string) do
+    case parse_date(date_string) do
+      %Date{} = date -> Calendar.strftime(date, "%Y%m%d")
+      _ -> "00000000"
+    end
+  end
+
+  defp generate_address_hash(notice) do
+    # Hash based on address and responsible person for uniqueness when UPRN is missing
+    hash_input = "#{notice.address}|#{notice.responsible_person}"
+
+    :crypto.hash(:md5, hash_input)
+    |> Base.encode16(case: :lower)
+    |> String.slice(0, 8)
   end
 
   defp map_status(nil), do: nil

@@ -14,8 +14,8 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
       assert {:ok, %ProcessedNotice{} = processed} = FraNoticeProcessor.process_notice(scraped)
 
       assert processed.agency_code == :fra
-      # regulator_id is now just the UPRN
-      assert processed.regulator_id == "83224833"
+      # regulator_id format: {UPRN}_{TYPE}_{YYYYMMDD}
+      assert processed.regulator_id == "83224833_ENF_20251106"
       assert processed.notice_date == ~D[2025-11-06]
       assert processed.offence_action_type == "FRA Enforcement Notice"
       assert processed.offender_attrs.name == "Usman Ahmed T/A F1 Tyres"
@@ -24,23 +24,60 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
       assert processed.premises_type == "FACTORY WAREHOUSE"
     end
 
-    test "uses UPRN directly as regulator_id" do
-      scraped = build_scraped_notice(%{uprn: "12345678"})
+    test "builds regulator_id from UPRN, type, and date" do
+      scraped =
+        build_scraped_notice(%{
+          uprn: "12345678",
+          notice_type: "ENFORCEMENT",
+          issue_date: "06/11/2025"
+        })
 
       {:ok, processed1} = FraNoticeProcessor.process_notice(scraped)
       {:ok, processed2} = FraNoticeProcessor.process_notice(scraped)
 
       assert processed1.regulator_id == processed2.regulator_id
-      assert processed1.regulator_id == "12345678"
+      assert processed1.regulator_id == "12345678_ENF_20251106"
     end
 
-    test "generates fallback ID when UPRN is nil" do
+    test "different notice types at same property have different regulator_ids" do
+      enforcement =
+        build_scraped_notice(%{
+          uprn: "12345678",
+          notice_type: "ENFORCEMENT",
+          issue_date: "06/11/2025"
+        })
+
+      prohibition =
+        build_scraped_notice(%{
+          uprn: "12345678",
+          notice_type: "PROHIBITION",
+          issue_date: "06/11/2025"
+        })
+
+      {:ok, p1} = FraNoticeProcessor.process_notice(enforcement)
+      {:ok, p2} = FraNoticeProcessor.process_notice(prohibition)
+
+      assert p1.regulator_id == "12345678_ENF_20251106"
+      assert p2.regulator_id == "12345678_PRO_20251106"
+      assert p1.regulator_id != p2.regulator_id
+    end
+
+    test "generates hash-based ID when UPRN is missing (0)" do
+      scraped = build_scraped_notice(%{uprn: "0"})
+
+      {:ok, processed} = FraNoticeProcessor.process_notice(scraped)
+
+      # Format for missing UPRN: 0_{TYPE}_{DATE}_{HASH}
+      assert processed.regulator_id =~ ~r/^0_ENF_\d{8}_[a-f0-9]{8}$/
+    end
+
+    test "generates hash-based ID when UPRN is nil" do
       scraped = build_scraped_notice(%{uprn: nil})
 
       {:ok, processed} = FraNoticeProcessor.process_notice(scraped)
 
-      # Fallback format: fra_{date}_{hash}
-      assert processed.regulator_id =~ ~r/^fra_\d{8}_[a-f0-9]{8}$/
+      # Format for nil UPRN: 0_{TYPE}_{DATE}_{HASH}
+      assert processed.regulator_id =~ ~r/^0_ENF_\d{8}_[a-f0-9]{8}$/
     end
 
     test "maps notice types correctly" do
@@ -203,12 +240,14 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessorTest do
 
     test "creates notice in database", %{agency: _agency} do
       uprn = "test_#{System.unique_integer([:positive])}"
-      scraped = build_scraped_notice(%{uprn: uprn})
+
+      scraped =
+        build_scraped_notice(%{uprn: uprn, notice_type: "ENFORCEMENT", issue_date: "06/11/2025"})
 
       assert {:ok, notice} = FraNoticeProcessor.process_and_create_notice(scraped, nil)
 
-      # regulator_id is now the UPRN directly
-      assert notice.regulator_id == uprn
+      # regulator_id format: {UPRN}_{TYPE}_{YYYYMMDD}
+      assert notice.regulator_id == "#{uprn}_ENF_20251106"
       assert notice.offence_action_type == "FRA Enforcement Notice"
       assert notice.notice_status == :in_force
       assert notice.premises_type == "FACTORY WAREHOUSE"
