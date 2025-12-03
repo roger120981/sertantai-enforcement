@@ -13,11 +13,12 @@ ExUnit.start(
   # 2 minutes - necessary for dashboard metric calculations and large data operations
   timeout: 120_000,
 
-  # Exclude slow and integration tests by default for faster development cycles
+  # Exclude slow, integration, and external tests by default for faster development cycles
   # Note: :heavy tests (like dashboard) are INCLUDED by default with limited max_cases
-  # Run with: mix test --include slow --include integration
+  # Run with: mix test --include slow --include integration --include external
   # Or exclude heavy: mix test --exclude heavy
-  exclude: [:integration, :slow]
+  # :external tests make live HTTP calls to agency websites (ORR, FRA, MCA)
+  exclude: [:integration, :slow, :external]
 )
 
 # Configure Ecto SQL Sandbox for test isolation

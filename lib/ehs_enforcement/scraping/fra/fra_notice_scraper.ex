@@ -66,13 +66,18 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeScraper do
   - :notice_type - Filter by notice type: "PROHIBITION", "ENFORCEMENT", "ALTERATIONS", or nil (all)
   - :frs - Filter by Fire & Rescue Service name
   - :status - Filter by status: "IN FORCE", "COMPLIED", etc.
+  - :since_date - Only fetch notices issued on or after this date (Date or "DD/MM/YYYY" string)
   - :page_size - Records per page (default: 100)
   - :max_pages - Maximum pages to fetch (default: all)
+
+  The `:since_date` option is useful for incremental scraping in scheduled jobs,
+  avoiding full re-scrapes of all ~7,700 notices.
   """
   def scrape_all(opts \\ []) do
     notice_type_filter = Keyword.get(opts, :notice_type)
     frs_filter = Keyword.get(opts, :frs)
     status_filter = Keyword.get(opts, :status)
+    since_date_filter = Keyword.get(opts, :since_date) |> format_date_filter()
     page_size = Keyword.get(opts, :page_size, @default_page_size)
     max_pages = Keyword.get(opts, :max_pages)
 
@@ -80,6 +85,7 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeScraper do
       notice_type: notice_type_filter,
       frs: frs_filter,
       status: status_filter,
+      since_date: since_date_filter,
       page_size: page_size
     )
 
@@ -89,7 +95,8 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeScraper do
            fetch_all_pages(nonce, page_size, max_pages, %{
              notice_type: notice_type_filter,
              frs: frs_filter,
-             status: status_filter
+             status: status_filter,
+             since_date: since_date_filter
            }) do
       Logger.info("FRA: Successfully scraped #{length(all_notices)} notices")
       {:ok, all_notices}
@@ -314,6 +321,7 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeScraper do
     |> maybe_add_filter(3, filters[:notice_type])
     |> maybe_add_filter(1, filters[:frs])
     |> maybe_add_filter(5, filters[:status])
+    |> maybe_add_date_filter(2, filters[:since_date])
   end
 
   defp maybe_add_filter(params, _col, nil), do: params
@@ -324,6 +332,40 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeScraper do
         {"columns[#{col}][search][value]", value},
         {"columns[#{col}][search][regex]", "false"}
       ]
+  end
+
+  # wpDataTables date range filter uses pipe-separated format: "from_date|to_date"
+  # For since_date, we use "from_date|" (open-ended to present)
+  defp maybe_add_date_filter(params, _col, nil), do: params
+
+  defp maybe_add_date_filter(params, col, date_string) do
+    # wpDataTables expects date range as "from|to" format
+    # Using "DD/MM/YYYY|" means "from this date onwards"
+    params ++
+      [
+        {"columns[#{col}][search][value]", "#{date_string}|"},
+        {"columns[#{col}][search][regex]", "false"}
+      ]
+  end
+
+  # Format date for wpDataTables filter (DD/MM/YYYY format)
+  defp format_date_filter(nil), do: nil
+
+  defp format_date_filter(%Date{} = date) do
+    Calendar.strftime(date, "%d/%m/%Y")
+  end
+
+  defp format_date_filter(date_string) when is_binary(date_string) do
+    # If already in DD/MM/YYYY format, use as-is
+    if Regex.match?(~r/^\d{2}\/\d{2}\/\d{4}$/, date_string) do
+      date_string
+    else
+      # Try to parse ISO format (YYYY-MM-DD) and convert
+      case Date.from_iso8601(date_string) do
+        {:ok, date} -> Calendar.strftime(date, "%d/%m/%Y")
+        {:error, _} -> nil
+      end
+    end
   end
 
   defp fetch_with_retry(url, retries) do

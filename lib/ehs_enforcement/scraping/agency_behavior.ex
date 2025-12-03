@@ -157,6 +157,7 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
   def get_agency_module(:mca), do: EhsEnforcement.Scraping.Agencies.Mca
   def get_agency_module(:orr), do: EhsEnforcement.Scraping.Agencies.Orr
   def get_agency_module(:caa), do: EhsEnforcement.Scraping.Agencies.Caa
+  def get_agency_module(:opss), do: EhsEnforcement.Scraping.Agencies.Opss
   # Alias for backward compatibility
   def get_agency_module(:environment_agency), do: EhsEnforcement.Scraping.Agencies.Ea
 
@@ -164,7 +165,7 @@ defmodule EhsEnforcement.Scraping.AgencyBehavior do
     raise ArgumentError, """
     Unsupported agency: #{inspect(agency)}
 
-    Supported agencies: :hse, :ea, :environment_agency (alias for :ea), :sepa, :nrw, :fra, :mca, :orr, :caa
+    Supported agencies: :hse, :ea, :environment_agency (alias for :ea), :sepa, :nrw, :fra, :mca, :orr, :caa, :opss
 
     To add support for a new agency, create a module implementing the
     EhsEnforcement.Scraping.AgencyBehavior and add it to get_agency_module/1.
