@@ -17,6 +17,11 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
   alias EhsEnforcement.Scraping.Api.EaCaseCoordinator
   alias EhsEnforcement.Scraping.Api.SepaCoordinator
   alias EhsEnforcement.Scraping.Api.NrwCoordinator
+  alias EhsEnforcement.Scraping.Api.CaaCoordinator
+  alias EhsEnforcement.Scraping.Api.OpssCoordinator
+  alias EhsEnforcement.Scraping.Api.OrrCoordinator
+  alias EhsEnforcement.Scraping.Api.FraCoordinator
+  alias EhsEnforcement.Scraping.Api.McaCoordinator
 
   @doc """
   Start a new scraping session.
@@ -249,16 +254,84 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
              database: "cases",
              limit: params["limit"] || 20
            }}
+
+        "caa" ->
+          # CAA scrapes prosecutions (PDFs) and undertakings (HTML)
+          {:ok,
+           %{
+             agency: String.to_existing_atom(agency),
+             database: params["database"] || "all",
+             data_type: parse_data_type(params["data_type"]),
+             years: params["years"],
+             use_ai_parsing: params["use_ai_parsing"] || false
+           }}
+
+        "opss" ->
+          # OPSS scrapes notices and prosecutions from bi-annual reports
+          {:ok,
+           %{
+             agency: String.to_existing_atom(agency),
+             database: params["database"] || "all",
+             data_type: parse_data_type(params["data_type"]),
+             periods: params["periods"]
+           }}
+
+        "orr" ->
+          # ORR scrapes prosecutions and notices (improvement/prohibition)
+          {:ok,
+           %{
+             agency: String.to_existing_atom(agency),
+             database: params["database"] || "all",
+             data_type: parse_data_type(params["data_type"]),
+             years: params["years"],
+             notice_type: parse_notice_type(params["notice_type"])
+           }}
+
+        "fra" ->
+          # FRA scrapes fire safety notices from NFCC register
+          {:ok,
+           %{
+             agency: String.to_existing_atom(agency),
+             database: "notices",
+             notice_type: params["notice_type"],
+             frs: params["frs"],
+             max_pages: params["max_pages"],
+             page_size: params["page_size"] || 100
+           }}
+
+        "mca" ->
+          # MCA scrapes maritime prosecutions from GOV.UK
+          {:ok,
+           %{
+             agency: String.to_existing_atom(agency),
+             database: "prosecutions",
+             years: params["years"],
+             include_pdf_years: params["include_pdf_years"] || false
+           }}
       end
     end
   end
 
-  defp validate_agency(agency) when agency in ["hse", "ea", "sepa", "nrw"], do: :ok
+  defp parse_data_type(nil), do: :all
+  defp parse_data_type("all"), do: :all
+  defp parse_data_type("notices"), do: :notices
+  defp parse_data_type("prosecutions"), do: :prosecutions
+  defp parse_data_type("undertakings"), do: :undertakings
+  defp parse_data_type(_), do: :all
+
+  defp parse_notice_type(nil), do: nil
+  defp parse_notice_type("improvement"), do: :improvement
+  defp parse_notice_type("prohibition"), do: :prohibition
+  defp parse_notice_type(_), do: nil
+
+  defp validate_agency(agency)
+       when agency in ["hse", "ea", "sepa", "nrw", "caa", "opss", "orr", "fra", "mca"],
+       do: :ok
 
   defp validate_agency(agency),
     do:
       {:error, :invalid_params,
-       "Invalid agency: #{inspect(agency)}. Must be 'hse', 'ea', 'sepa', or 'nrw'"}
+       "Invalid agency: #{inspect(agency)}. Must be one of: hse, ea, sepa, nrw, caa, opss, orr, fra, mca"}
 
   defp validate_database(database)
        when database in ["notices", "convictions", "appeals", "cases"],
@@ -349,6 +422,41 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
             start_page: 1,
             max_pages: 1
           })
+
+        :caa ->
+          # CAA scrapes PDFs and HTML
+          Map.merge(base_attributes, %{
+            start_page: 1,
+            max_pages: 10
+          })
+
+        :opss ->
+          # OPSS scrapes bi-annual reports
+          Map.merge(base_attributes, %{
+            start_page: 1,
+            max_pages: length(params[:periods] || []) |> max(1)
+          })
+
+        :orr ->
+          # ORR scrapes prosecutions and notices
+          Map.merge(base_attributes, %{
+            start_page: 1,
+            max_pages: 10
+          })
+
+        :fra ->
+          # FRA scrapes fire safety notices
+          Map.merge(base_attributes, %{
+            start_page: 1,
+            max_pages: params[:max_pages] || 100
+          })
+
+        :mca ->
+          # MCA scrapes maritime prosecutions
+          Map.merge(base_attributes, %{
+            start_page: 1,
+            max_pages: length(params[:years] || []) |> max(1)
+          })
       end
 
     ScrapeSession
@@ -429,6 +537,50 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
                   params.limit,
                   nil
                 )
+
+              {:caa, _database} ->
+                opts = [
+                  data_type: params.data_type,
+                  years: params.years,
+                  use_ai_parsing: params.use_ai_parsing
+                ]
+
+                CaaCoordinator.start_scraping(opts)
+
+              {:opss, _database} ->
+                opts = [
+                  data_type: params.data_type,
+                  periods: params.periods
+                ]
+
+                OpssCoordinator.start_scraping(opts)
+
+              {:orr, _database} ->
+                opts = [
+                  data_type: params.data_type,
+                  years: params.years,
+                  notice_type: params.notice_type
+                ]
+
+                OrrCoordinator.start_scraping(opts)
+
+              {:fra, "notices"} ->
+                opts = [
+                  notice_type: params.notice_type,
+                  frs: params.frs,
+                  max_pages: params.max_pages,
+                  page_size: params.page_size
+                ]
+
+                FraCoordinator.start_scraping(opts)
+
+              {:mca, _database} ->
+                opts = [
+                  years: params.years,
+                  include_pdf_years: params.include_pdf_years
+                ]
+
+                McaCoordinator.start_scraping(opts)
 
               _other ->
                 {:error, :not_implemented}
