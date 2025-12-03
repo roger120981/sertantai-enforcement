@@ -27,18 +27,20 @@ defmodule EhsEnforcement.Scraping.Opss.OpssEnforcementScraper do
 
   @base_url "https://www.gov.uk/government/publications/opss-enforcement-actions"
 
-  # Report periods available as HTML
+  # Report periods available as HTML (oldest to newest)
   @html_periods [
-    "opss-enforcement-actions-1-april-2025-to-30-september-2025",
-    "opss-enforcement-actions-1-october-2024-to-31-march-2025",
-    "opss-enforcement-actions-1-april-2024-to-30-september-2024",
+    "opss-enforcement-actions-1-april-2022-to-30-september-2022",
+    "opss-enforcement-actions-1-october-to-2022-to-31-march-2023",
+    "opss-enforcement-actions-1-april-2023-to-30-june-2023",
     "opss-enforcement-actions-january-2024",
-    "opss-enforcement-actions-1-april-2023-to-30-september-2023",
-    "opss-enforcement-actions-1-october-to-2022-to-31-march-2023"
+    "opss-enforcement-actions-1-april-2024-to-30-september-2024",
+    "opss-enforcement-actions-1-october-2024-to-31-march-2025",
+    "opss-enforcement-actions-1-april-2025-to-30-september-2025"
   ]
 
   @max_retries 3
   @retry_delay_ms 1000
+  @rate_limit_delay_ms 2000
 
   defmodule ScrapedAction do
     @moduledoc "Struct representing a scraped OPSS enforcement action"
@@ -76,7 +78,14 @@ defmodule EhsEnforcement.Scraping.Opss.OpssEnforcementScraper do
     Logger.info("OPSS: Scraping #{length(periods)} report periods")
 
     {actions, errors} =
-      Enum.reduce(periods, {[], []}, fn period, {actions_acc, errors_acc} ->
+      periods
+      |> Enum.with_index()
+      |> Enum.reduce({[], []}, fn {period, index}, {actions_acc, errors_acc} ->
+        # Rate limiting: wait between requests (skip delay for first request)
+        if index > 0 do
+          Process.sleep(@rate_limit_delay_ms)
+        end
+
         case scrape_period(period, timestamp) do
           {:ok, period_actions} ->
             Logger.debug("OPSS: Scraped #{length(period_actions)} actions from #{period}")
