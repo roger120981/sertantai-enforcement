@@ -34,6 +34,7 @@ defmodule EhsEnforcement.Scraping.Orr.OrrNoticeScraper do
 
   @max_retries 3
   @retry_delay_ms 1000
+  @rate_limit_delay_ms 3000
 
   # Years with available data
   @improvement_years 2012..2025 |> Enum.to_list()
@@ -100,7 +101,14 @@ defmodule EhsEnforcement.Scraping.Orr.OrrNoticeScraper do
 
     years
     |> Enum.filter(&(&1 in @improvement_years))
-    |> Enum.flat_map(fn year ->
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {year, index} ->
+      # Rate limiting: wait between requests (skip first)
+      if index > 0 do
+        Logger.debug("ORR: Rate limiting - waiting #{@rate_limit_delay_ms}ms before next request")
+        Process.sleep(@rate_limit_delay_ms)
+      end
+
       case scrape_improvement_year(year, timestamp) do
         {:ok, notices} ->
           Logger.debug("ORR: Scraped #{length(notices)} improvement notices for #{year}")
@@ -126,7 +134,14 @@ defmodule EhsEnforcement.Scraping.Orr.OrrNoticeScraper do
 
     years
     |> Enum.filter(&(&1 in @prohibition_years))
-    |> Enum.flat_map(fn year ->
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {year, index} ->
+      # Rate limiting: wait between requests (skip first)
+      if index > 0 do
+        Logger.debug("ORR: Rate limiting - waiting #{@rate_limit_delay_ms}ms before next request")
+        Process.sleep(@rate_limit_delay_ms)
+      end
+
       case scrape_prohibition_year(year, timestamp) do
         {:ok, notices} ->
           Logger.debug("ORR: Scraped #{length(notices)} prohibition notices for #{year}")
