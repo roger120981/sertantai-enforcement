@@ -441,6 +441,99 @@ defmodule EhsEnforcement.Enforcement.Notice do
         )
       end)
     end
+
+    # ============================================================================
+    # FRA Fire Safety Notices Scraping Actions
+    # ============================================================================
+
+    create :scrape_fra_notices do
+      description(
+        "Scheduled scraping of FRA fire safety notices - weekly scrape of NFCC register"
+      )
+
+      argument(:since_date, :date, default: nil)
+      argument(:notice_type, :string, default: nil)
+
+      change(fn changeset, _context ->
+        since_date = Ash.Changeset.get_argument(changeset, :since_date)
+        notice_type = Ash.Changeset.get_argument(changeset, :notice_type)
+
+        require Logger
+
+        Logger.info("Starting scheduled FRA notices scrape",
+          since_date: since_date,
+          notice_type: notice_type
+        )
+
+        # Default to last 30 days for incremental scraping
+        since_date = since_date || Date.add(Date.utc_today(), -30)
+
+        scrape_opts =
+          [since_date: since_date, scrape_type: :scheduled]
+          |> then(fn opts ->
+            if notice_type, do: [{:notice_type, notice_type} | opts], else: opts
+          end)
+
+        case EhsEnforcement.Scraping.Agencies.Fra.validate_params(scrape_opts) do
+          {:ok, validated_params} ->
+            case EhsEnforcement.Scraping.Agencies.Fra.start_scraping(validated_params, %{}) do
+              {:ok, session_result} ->
+                Logger.info("FRA notices scrape completed",
+                  created: session_result.cases_created,
+                  existing: session_result.cases_exist_total
+                )
+
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_result,
+                  message:
+                    "FRA notices scraping completed: #{session_result.cases_created} notices created, #{session_result.cases_exist_total} already exist"
+                )
+
+              {:error, error} ->
+                Logger.error("FRA notices scrape failed", error: inspect(error))
+
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_error,
+                  message: "FRA notices scraping failed: #{inspect(error)}"
+                )
+            end
+
+          {:error, error} ->
+            Ash.Changeset.add_error(changeset,
+              field: :validation_error,
+              message: "FRA parameter validation failed: #{inspect(error)}"
+            )
+        end
+      end)
+    end
+
+    create :handle_fra_scrape_error do
+      description("Handle errors from scheduled FRA scraping jobs")
+
+      argument(:error_details, :map)
+      argument(:job_name, :string)
+      argument(:attempt_number, :integer)
+
+      change(fn changeset, _context ->
+        error_details = Ash.Changeset.get_argument(changeset, :error_details)
+        job_name = Ash.Changeset.get_argument(changeset, :job_name)
+        attempt_number = Ash.Changeset.get_argument(changeset, :attempt_number)
+
+        require Logger
+
+        Logger.error("Scheduled FRA scraping job failed",
+          job_name: job_name,
+          attempt: attempt_number,
+          error_details: error_details
+        )
+
+        Ash.Changeset.add_error(changeset,
+          field: :job_error,
+          message:
+            "FRA job #{job_name} failed on attempt #{attempt_number}: #{inspect(error_details)}"
+        )
+      end)
+    end
   end
 
   oban do
@@ -476,6 +569,20 @@ defmodule EhsEnforcement.Enforcement.Notice do
           EhsEnforcement.Enforcement.Notice.AshOban.Scheduler.MonthlyScrapeCAA
         )
       end
+
+      trigger :weekly_scrape_fra do
+        action(:scrape_fra_notices)
+
+        # Weekly on Wednesday at 6 AM (offset from NRW on Tuesday)
+        scheduler_cron("0 6 * * 3")
+        max_attempts(3)
+        queue(:scraping)
+        on_error(:handle_fra_scrape_error)
+
+        worker_module_name(EhsEnforcement.Enforcement.Notice.AshOban.Worker.WeeklyScrapeFra)
+
+        scheduler_module_name(EhsEnforcement.Enforcement.Notice.AshOban.Scheduler.WeeklyScrapeFra)
+      end
     end
   end
 
@@ -483,6 +590,7 @@ defmodule EhsEnforcement.Enforcement.Notice do
     define(:create)
     define(:scrape_sepa_penalties)
     define(:scrape_caa_undertakings)
+    define(:scrape_fra_notices)
   end
 
   # Helper function to update offender agencies when notices are created/updated

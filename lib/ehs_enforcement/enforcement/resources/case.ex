@@ -749,6 +749,231 @@ defmodule EhsEnforcement.Enforcement.Case do
       end)
     end
 
+    # ============================================================================
+    # OPSS Scraping Actions
+    # ============================================================================
+
+    create :scrape_opss_cases do
+      description(
+        "Scheduled scraping of OPSS enforcement actions - monthly scrape of GOV.UK publications"
+      )
+
+      argument(:periods, {:array, :string}, default: nil)
+
+      change(fn changeset, _context ->
+        periods = Ash.Changeset.get_argument(changeset, :periods)
+
+        scrape_opts =
+          if periods do
+            [data_type: :all, periods: periods, scrape_type: :scheduled]
+          else
+            [data_type: :all, scrape_type: :scheduled]
+          end
+
+        case EhsEnforcement.Scraping.Agencies.Opss.validate_params(scrape_opts) do
+          {:ok, validated_params} ->
+            case EhsEnforcement.Scraping.Agencies.Opss.start_scraping(validated_params, %{}) do
+              {:ok, session_result} ->
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_result,
+                  message:
+                    "OPSS scraping completed: #{session_result.cases_created} cases created, #{session_result.cases_exist_total} already exist"
+                )
+
+              {:error, error} ->
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_error,
+                  message: "OPSS scraping failed: #{inspect(error)}"
+                )
+            end
+
+          {:error, error} ->
+            Ash.Changeset.add_error(changeset,
+              field: :validation_error,
+              message: "OPSS parameter validation failed: #{inspect(error)}"
+            )
+        end
+      end)
+    end
+
+    create :handle_scrape_error_opss do
+      description("Handle errors from scheduled OPSS scraping jobs")
+
+      argument(:error_details, :map)
+      argument(:job_name, :string)
+      argument(:attempt_number, :integer)
+
+      change(fn changeset, _context ->
+        error_details = Ash.Changeset.get_argument(changeset, :error_details)
+        job_name = Ash.Changeset.get_argument(changeset, :job_name)
+        attempt_number = Ash.Changeset.get_argument(changeset, :attempt_number)
+
+        require Logger
+
+        Logger.error("Scheduled OPSS scraping job failed", %{
+          job_name: job_name,
+          attempt: attempt_number,
+          error_details: error_details
+        })
+
+        Ash.Changeset.add_error(changeset,
+          field: :job_error,
+          message:
+            "OPSS job #{job_name} failed on attempt #{attempt_number}: #{inspect(error_details)}"
+        )
+      end)
+    end
+
+    # ============================================================================
+    # ORR Scraping Actions
+    # ============================================================================
+
+    create :scrape_orr_prosecutions do
+      description(
+        "Scheduled scraping of ORR prosecutions - monthly scrape of PDF reports and HTML pages"
+      )
+
+      argument(:years, {:array, :integer}, default: nil)
+
+      change(fn changeset, _context ->
+        years = Ash.Changeset.get_argument(changeset, :years)
+
+        scrape_opts =
+          if years do
+            [data_type: :prosecutions, years: years, scrape_type: :scheduled]
+          else
+            [data_type: :prosecutions, scrape_type: :scheduled]
+          end
+
+        case EhsEnforcement.Scraping.Agencies.Orr.validate_params(scrape_opts) do
+          {:ok, validated_params} ->
+            case EhsEnforcement.Scraping.Agencies.Orr.start_scraping(validated_params, %{}) do
+              {:ok, session_result} ->
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_result,
+                  message:
+                    "ORR prosecutions scraping completed: #{session_result.cases_created} cases created, #{session_result.cases_exist_total} already exist"
+                )
+
+              {:error, error} ->
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_error,
+                  message: "ORR prosecutions scraping failed: #{inspect(error)}"
+                )
+            end
+
+          {:error, error} ->
+            Ash.Changeset.add_error(changeset,
+              field: :validation_error,
+              message: "ORR parameter validation failed: #{inspect(error)}"
+            )
+        end
+      end)
+    end
+
+    create :handle_scrape_error_orr do
+      description("Handle errors from scheduled ORR scraping jobs")
+
+      argument(:error_details, :map)
+      argument(:job_name, :string)
+      argument(:attempt_number, :integer)
+
+      change(fn changeset, _context ->
+        error_details = Ash.Changeset.get_argument(changeset, :error_details)
+        job_name = Ash.Changeset.get_argument(changeset, :job_name)
+        attempt_number = Ash.Changeset.get_argument(changeset, :attempt_number)
+
+        require Logger
+
+        Logger.error("Scheduled ORR scraping job failed", %{
+          job_name: job_name,
+          attempt: attempt_number,
+          error_details: error_details
+        })
+
+        Ash.Changeset.add_error(changeset,
+          field: :job_error,
+          message:
+            "ORR job #{job_name} failed on attempt #{attempt_number}: #{inspect(error_details)}"
+        )
+      end)
+    end
+
+    # ============================================================================
+    # MCA Scraping Actions
+    # ============================================================================
+
+    create :scrape_mca_prosecutions do
+      description(
+        "Scheduled scraping of MCA prosecutions - monthly scrape of GOV.UK publications"
+      )
+
+      argument(:years, {:array, :integer}, default: nil)
+
+      change(fn changeset, _context ->
+        years = Ash.Changeset.get_argument(changeset, :years)
+
+        scrape_opts =
+          if years do
+            [years: years, scrape_type: :scheduled]
+          else
+            [scrape_type: :scheduled]
+          end
+
+        case EhsEnforcement.Scraping.Agencies.Mca.validate_params(scrape_opts) do
+          {:ok, validated_params} ->
+            case EhsEnforcement.Scraping.Agencies.Mca.start_scraping(validated_params, %{}) do
+              {:ok, session_result} ->
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_result,
+                  message:
+                    "MCA prosecutions scraping completed: #{session_result.cases_created} cases created, #{session_result.cases_exist_total} already exist"
+                )
+
+              {:error, error} ->
+                Ash.Changeset.add_error(changeset,
+                  field: :scraping_error,
+                  message: "MCA prosecutions scraping failed: #{inspect(error)}"
+                )
+            end
+
+          {:error, error} ->
+            Ash.Changeset.add_error(changeset,
+              field: :validation_error,
+              message: "MCA parameter validation failed: #{inspect(error)}"
+            )
+        end
+      end)
+    end
+
+    create :handle_scrape_error_mca do
+      description("Handle errors from scheduled MCA scraping jobs")
+
+      argument(:error_details, :map)
+      argument(:job_name, :string)
+      argument(:attempt_number, :integer)
+
+      change(fn changeset, _context ->
+        error_details = Ash.Changeset.get_argument(changeset, :error_details)
+        job_name = Ash.Changeset.get_argument(changeset, :job_name)
+        attempt_number = Ash.Changeset.get_argument(changeset, :attempt_number)
+
+        require Logger
+
+        Logger.error("Scheduled MCA scraping job failed", %{
+          job_name: job_name,
+          attempt: attempt_number,
+          error_details: error_details
+        })
+
+        Ash.Changeset.add_error(changeset,
+          field: :job_error,
+          message:
+            "MCA job #{job_name} failed on attempt #{attempt_number}: #{inspect(error_details)}"
+        )
+      end)
+    end
+
     read :duplicate_detection do
       description("Efficient duplicate checking by regulator_id for scraping operations")
 
@@ -919,6 +1144,45 @@ defmodule EhsEnforcement.Enforcement.Case do
 
         scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.MonthlyScrapeCAA)
       end
+
+      trigger :monthly_scrape_opss do
+        action(:scrape_opss_cases)
+
+        # Monthly on the 1st at 6 AM (offset from SEPA at 5 AM)
+        scheduler_cron("0 6 1 * *")
+        max_attempts(3)
+        queue(:scraping)
+        on_error(:handle_scrape_error_opss)
+        worker_module_name(EhsEnforcement.Enforcement.Case.AshOban.Worker.MonthlyScrapeOpss)
+
+        scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.MonthlyScrapeOpss)
+      end
+
+      trigger :monthly_scrape_orr do
+        action(:scrape_orr_prosecutions)
+
+        # Monthly on the 1st at 7 AM (offset from OPSS at 6 AM)
+        scheduler_cron("0 7 1 * *")
+        max_attempts(3)
+        queue(:scraping)
+        on_error(:handle_scrape_error_orr)
+        worker_module_name(EhsEnforcement.Enforcement.Case.AshOban.Worker.MonthlyScrapeOrr)
+
+        scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.MonthlyScrapeOrr)
+      end
+
+      trigger :monthly_scrape_mca do
+        action(:scrape_mca_prosecutions)
+
+        # Monthly on the 15th at 8 AM (offset from CAA at 6/7 AM)
+        scheduler_cron("0 8 15 * *")
+        max_attempts(3)
+        queue(:scraping)
+        on_error(:handle_scrape_error_mca)
+        worker_module_name(EhsEnforcement.Enforcement.Case.AshOban.Worker.MonthlyScrapesMca)
+
+        scheduler_module_name(EhsEnforcement.Enforcement.Case.AshOban.Scheduler.MonthlyScrapesMca)
+      end
     end
   end
 
@@ -932,6 +1196,9 @@ defmodule EhsEnforcement.Enforcement.Case do
     define(:scrape_ea_cases_historical)
     define(:scrape_nrw_cases)
     define(:scrape_caa_prosecutions)
+    define(:scrape_opss_cases)
+    define(:scrape_orr_prosecutions)
+    define(:scrape_mca_prosecutions)
     define(:duplicate_detection)
     define(:bulk_create)
   end
