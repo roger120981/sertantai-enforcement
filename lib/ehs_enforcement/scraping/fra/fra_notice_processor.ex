@@ -219,12 +219,43 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeProcessor do
     # Welsh FRAs: Mid and West Wales, North Wales, South Wales
     country = determine_country(notice.frs)
 
+    # Build offender name - disambiguate generic names with UPRN
+    # Generic names like "Responsible Person" are common in FRA data and would
+    # collide on the normalized_name identity. Appending UPRN makes them unique.
+    name = build_offender_name(notice.responsible_person, notice.uprn)
+
     %{
-      name: notice.responsible_person || "[Unknown Responsible Person]",
+      name: name,
       address: notice.address,
       postcode: postcode,
       country: country
     }
+  end
+
+  @generic_names [
+    "responsible person",
+    "the responsible person",
+    "unknown",
+    "not specified",
+    "n/a",
+    "na",
+    "none",
+    "tbc",
+    "tba"
+  ]
+
+  defp build_offender_name(nil, uprn), do: "[Unknown Responsible Person - UPRN: #{uprn}]"
+  defp build_offender_name("", uprn), do: "[Unknown Responsible Person - UPRN: #{uprn}]"
+
+  defp build_offender_name(name, uprn) when is_binary(name) do
+    normalized = name |> String.trim() |> String.downcase()
+
+    if normalized in @generic_names do
+      # Disambiguate generic names with UPRN to avoid identity collisions
+      "#{String.trim(name)} (UPRN: #{uprn})"
+    else
+      String.trim(name)
+    end
   end
 
   defp determine_country(nil), do: "England"
