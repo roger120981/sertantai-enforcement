@@ -23,6 +23,8 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeScraper do
   @max_retries 3
   @retry_delay_ms 1000
   @default_page_size 100
+  # Rate limiting: 3 seconds between requests for ethical scraping
+  @rate_limit_delay_ms 3000
 
   # Column indices from wpDataTables configuration
   @col_uprn 0
@@ -191,6 +193,13 @@ defmodule EhsEnforcement.Scraping.Fra.FraNoticeScraper do
           remaining_notices =
             2..pages_to_fetch
             |> Enum.reduce_while([], fn page_num, acc ->
+              # Rate limiting: wait 3 seconds between requests for ethical scraping
+              Logger.debug(
+                "FRA: Rate limiting - waiting #{@rate_limit_delay_ms}ms before next request"
+              )
+
+              Process.sleep(@rate_limit_delay_ms)
+
               start = (page_num - 1) * page_size
 
               Logger.debug("FRA: Fetching page #{page_num}/#{pages_to_fetch} (start: #{start})")
