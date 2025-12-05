@@ -18,11 +18,11 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeScraper do
 
       # Collect notice summary records for date range
       {:ok, notices} = NoticeScraper.collect_summary_records(
-        ~D[2024-01-01], 
-        ~D[2024-12-31], 
+        ~D[2024-01-01],
+        ~D[2024-12-31],
         timeout_ms: 30_000
       )
-      
+
       # Fetch detailed notice record
       {:ok, detail} = NoticeScraper.fetch_detail_record(notice_summary, timeout_ms: 30_000)
   """
@@ -39,7 +39,7 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeScraper do
   ## Parameters
 
   - `date_from` - Start date for notice search (Date struct)
-  - `date_to` - End date for notice search (Date struct) 
+  - `date_to` - End date for notice search (Date struct)
   - `opts` - Options passed to underlying case scraper
 
   ## Returns
@@ -51,13 +51,13 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeScraper do
 
       # Get all enforcement notices for 2024
       {:ok, notices} = NoticeScraper.collect_summary_records(
-        ~D[2024-01-01], 
+        ~D[2024-01-01],
         ~D[2024-12-31]
       )
-      
+
       # With custom timeout
       {:ok, notices} = NoticeScraper.collect_summary_records(
-        ~D[2024-01-01], 
+        ~D[2024-01-01],
         ~D[2024-12-31],
         timeout_ms: 45_000
       )
@@ -109,7 +109,7 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeScraper do
 
       # Fetch notice details with default settings
       {:ok, detail} = NoticeScraper.fetch_detail_record(notice_summary)
-      
+
       # With custom timeout and delay
       {:ok, detail} = NoticeScraper.fetch_detail_record(
         notice_summary,
@@ -163,12 +163,15 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeScraper do
       end
   """
   def enforcement_notice?(detail_record) do
-    # Check if the action type matches enforcement notice patterns
-    action_type = Map.get(detail_record, :offence_action_type, "")
+    # Check if the action type matches enforcement notice
+    action_type = Map.get(detail_record, :action_type)
 
-    action_type
-    |> String.downcase()
-    |> String.contains?(["enforcement", "notice"])
+    case action_type do
+      :enforcement_notice -> true
+      "enforcement_notice" -> true
+      s when is_binary(s) -> String.contains?(String.downcase(s), ["enforcement", "notice"])
+      _ -> false
+    end
   end
 
   @doc """
@@ -192,7 +195,7 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeScraper do
 
       # Get all detailed notices for Q1 2024
       {:ok, notices} = NoticeScraper.collect_and_enrich_notices(
-        ~D[2024-01-01], 
+        ~D[2024-01-01],
         ~D[2024-03-31]
       )
   """

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 networks:
   ehs_enforcement_network:
@@ -13,7 +13,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5434:5432"  # Use port 5434 to avoid conflict
+      - "5434:5432" # Use port 5434 to avoid conflict
     volumes:
       - ehs_postgres_data:/var/lib/postgresql/data
     networks:
@@ -33,6 +33,8 @@ services:
       - "max_replication_slots=10"
       - "-c"
       - "max_wal_senders=10"
+      - "-c"
+      - "max_connections=200"
 
   # ElectricSQL sync service (v1.0 - HTTP Shape API)
   electric:
@@ -40,10 +42,10 @@ services:
     container_name: ehs_enforcement_electric
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ehs_enforcement_dev
-      ELECTRIC_INSECURE: "true"  # Development only!
-      PG_PROXY_PASSWORD: proxy_password  # Change in production!
+      ELECTRIC_INSECURE: "true" # Development only!
+      PG_PROXY_PASSWORD: proxy_password # Change in production!
     ports:
-      - "3001:3000"  # HTTP API for Shape-based sync (Electric runs on 3000 inside)
+      - "3001:3000" # HTTP API for Shape-based sync (Electric runs on 3000 inside)
     networks:
       - ehs_enforcement_network
     depends_on:

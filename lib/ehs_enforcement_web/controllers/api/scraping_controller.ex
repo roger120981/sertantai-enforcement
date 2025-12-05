@@ -524,6 +524,21 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
                   nil
                 )
 
+              {:ea, "convictions"} ->
+                # "convictions" from frontend maps to EA court cases
+                EaCaseCoordinator.scrape_batch(
+                  session.session_id,
+                  params.from_date,
+                  params.to_date,
+                  [:court_case, :caution],
+                  nil
+                )
+
+              {:ea, "appeals"} ->
+                # EA appeals - not currently supported by EA public register
+                # Return not_implemented for now
+                {:error, :not_implemented}
+
               {:sepa, "penalties"} ->
                 SepaCoordinator.scrape_batch(
                   session.session_id,
