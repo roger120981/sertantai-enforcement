@@ -2,14 +2,18 @@
  * TanStack Query Hooks for Scrape Sessions
  *
  * Provides reactive queries for browsing scraping session history.
- * Data is synced from PostgreSQL via ElectricSQL to Svelte store.
+ * Data is synced from PostgreSQL via ElectricSQL to Svelte store,
+ * with fallback to REST API when ElectricSQL is unavailable.
  */
 
 import { createQuery } from '@tanstack/svelte-query'
-import { scrapeSessionsStore } from '$lib/stores/scrapeSessions'
+import { scrapeSessionsStore, setScrapeSessions } from '$lib/stores/scrapeSessions'
 import { get } from 'svelte/store'
 import type { ScrapeSession } from '$lib/db/schema'
 import { browser } from '$app/environment'
+
+// API base URL for fallback
+const API_BASE = import.meta.env.PUBLIC_API_URL || 'http://localhost:4002'
 
 /**
  * Query keys for session history
@@ -32,13 +36,89 @@ export interface SessionFilters {
 }
 
 /**
- * Query all scrape sessions with optional filtering
- *
- * Reads from local TanStack DB collection which is synced
- * in real-time from PostgreSQL via ElectricSQL.
+ * Fetch sessions from REST API (fallback when ElectricSQL unavailable)
  */
+async function fetchSessionsFromApi(filters?: SessionFilters): Promise<ScrapeSession[]> {
+  const params = new URLSearchParams()
+
+  if (filters?.limit) {
+    params.set('limit', filters.limit.toString())
+  }
+
+  // Note: API handles status differently than frontend filter
+  // API expects exact status, frontend uses grouped statuses
+
+  const url = `${API_BASE}/api/scraping/sessions?${params.toString()}`
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`)
+    }
+
+    const result = await response.json()
+    if (result.success && Array.isArray(result.data)) {
+      return result.data as ScrapeSession[]
+    }
+    return []
+  } catch (error) {
+    console.error('[ScrapeSessions] API fallback failed:', error)
+    return []
+  }
+}
+
 /**
- * Fetch sessions from Svelte store
+ * Apply client-side filters to sessions
+ */
+function applyFilters(sessions: ScrapeSession[], filters?: SessionFilters): ScrapeSession[] {
+  let filtered = [...sessions]
+
+  // Apply status filter
+  if (filters?.status && filters.status !== 'all') {
+    switch (filters.status) {
+      case 'active':
+        filtered = filtered.filter(
+          (s) => s.status === 'pending' || s.status === 'running'
+        )
+        break
+      case 'completed':
+        filtered = filtered.filter((s) => s.status === 'completed')
+        break
+      case 'failed':
+        filtered = filtered.filter(
+          (s) => s.status === 'failed' || s.status === 'stopped'
+        )
+        break
+    }
+  }
+
+  // Apply database filter
+  if (filters?.database && filters.database !== 'all') {
+    filtered = filtered.filter((s) => s.database === filters.database)
+  }
+
+  // Apply agency filter
+  if (filters?.agency && filters.agency !== 'all') {
+    filtered = filtered.filter((s) => s.agency === filters.agency)
+  }
+
+  // Sort by most recent first
+  filtered.sort((a, b) => {
+    return new Date(b.inserted_at).getTime() - new Date(a.inserted_at).getTime()
+  })
+
+  // Apply pagination
+  if (filters?.offset !== undefined && filters?.limit !== undefined) {
+    filtered = filtered.slice(filters.offset, filters.offset + filters.limit)
+  } else if (filters?.limit !== undefined) {
+    filtered = filtered.slice(0, filters.limit)
+  }
+
+  return filtered
+}
+
+/**
+ * Fetch sessions from Svelte store, with API fallback
  */
 async function fetchScrapeSessions(filters?: SessionFilters): Promise<ScrapeSession[]> {
   if (!browser) {
@@ -48,48 +128,19 @@ async function fetchScrapeSessions(filters?: SessionFilters): Promise<ScrapeSess
   // Read from Svelte store (populated by ElectricSQL sync)
   let sessions = get(scrapeSessionsStore)
 
-  // Apply status filter
-  if (filters?.status && filters.status !== 'all') {
-    switch (filters.status) {
-      case 'active':
-        sessions = sessions.filter(
-          (s) => s.status === 'pending' || s.status === 'running'
-        )
-        break
-      case 'completed':
-        sessions = sessions.filter((s) => s.status === 'completed')
-        break
-      case 'failed':
-        sessions = sessions.filter(
-          (s) => s.status === 'failed' || s.status === 'stopped'
-        )
-        break
+  // If store is empty, try fetching from API
+  if (sessions.length === 0) {
+    console.log('[ScrapeSessions] Store empty, fetching from API fallback')
+    const apiSessions = await fetchSessionsFromApi({ limit: filters?.limit || 100 })
+
+    if (apiSessions.length > 0) {
+      // Populate the store with API data for future queries
+      setScrapeSessions(apiSessions)
+      sessions = apiSessions
     }
   }
 
-  // Apply database filter
-  if (filters?.database && filters.database !== 'all') {
-    sessions = sessions.filter((s) => s.database === filters.database)
-  }
-
-  // Apply agency filter
-  if (filters?.agency && filters.agency !== 'all') {
-    sessions = sessions.filter((s) => s.agency === filters.agency)
-  }
-
-  // Sort by most recent first
-  sessions.sort((a, b) => {
-    return new Date(b.inserted_at).getTime() - new Date(a.inserted_at).getTime()
-  })
-
-  // Apply pagination
-  if (filters?.offset !== undefined && filters?.limit !== undefined) {
-    sessions = sessions.slice(filters.offset, filters.offset + filters.limit)
-  } else if (filters?.limit !== undefined) {
-    sessions = sessions.slice(0, filters.limit)
-  }
-
-  return sessions
+  return applyFilters(sessions, filters)
 }
 
 export function useScrapeSessions(filters?: SessionFilters) {

@@ -11,6 +11,7 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
   use EhsEnforcementWeb, :controller
 
   require Logger
+  require Ash.Query
   alias EhsEnforcement.Scraping.ScrapeSession
   alias EhsEnforcement.Scraping.Api.HseNoticeCoordinator
   alias EhsEnforcement.Scraping.Api.HseCaseCoordinator
@@ -22,6 +23,84 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
   alias EhsEnforcement.Scraping.Api.OrrCoordinator
   alias EhsEnforcement.Scraping.Api.FraCoordinator
   alias EhsEnforcement.Scraping.Api.McaCoordinator
+
+  @doc """
+  List all scraping sessions.
+
+  GET /api/scraping/sessions
+
+  Query parameters:
+  - status: Filter by status (pending, running, completed, failed, stopped)
+  - agency: Filter by agency (hse, ea, sepa, nrw)
+  - database: Filter by database type (notices, convictions, appeals)
+  - limit: Maximum number of sessions to return (default: 100)
+
+  Returns:
+  {
+    "success": true,
+    "data": [
+      {
+        "id": "uuid",
+        "session_id": "uuid",
+        "agency": "hse",
+        "database": "notices",
+        "status": "completed",
+        ...
+      }
+    ]
+  }
+  """
+  def index(conn, params) do
+    limit = Map.get(params, "limit", "100") |> String.to_integer()
+
+    query =
+      ScrapeSession
+      |> Ash.Query.sort(inserted_at: :desc)
+      |> Ash.Query.limit(limit)
+
+    # Apply optional filters
+    query =
+      if status = params["status"] do
+        Ash.Query.filter(query, status == ^String.to_existing_atom(status))
+      else
+        query
+      end
+
+    query =
+      if agency = params["agency"] do
+        Ash.Query.filter(query, agency == ^String.to_existing_atom(agency))
+      else
+        query
+      end
+
+    query =
+      if database = params["database"] do
+        Ash.Query.filter(query, database == ^database)
+      else
+        query
+      end
+
+    case Ash.read(query) do
+      {:ok, sessions} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          success: true,
+          data: Enum.map(sessions, &serialize_session/1)
+        })
+
+      {:error, error} ->
+        Logger.error("Failed to fetch scraping sessions: #{inspect(error)}")
+
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{
+          success: false,
+          error: "Failed to fetch sessions",
+          details: inspect(error)
+        })
+    end
+  end
 
   @doc """
   Start a new scraping session.

@@ -207,6 +207,7 @@ defmodule EhsEnforcementWeb.Router do
     delete "/agencies/:id", AgencyController, :delete
 
     # Scraping API endpoints
+    get "/scraping/sessions", ScrapingController, :index
     post "/scraping/start", ScrapingController, :start_scraping
     delete "/scraping/stop/:session_id", ScrapingController, :stop_scraping
     patch "/scraping/sessions/:id/complete", ScrapingController, :complete_session

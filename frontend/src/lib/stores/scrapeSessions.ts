@@ -1,6 +1,6 @@
 /**
  * Svelte store for scrape sessions data
- * Updated by ElectricSQL sync
+ * Updated by ElectricSQL sync or REST API fallback
  */
 
 import { writable } from 'svelte/store'
@@ -8,6 +8,11 @@ import type { ScrapeSession } from '$lib/db/schema'
 
 // Create a writable store for scrape sessions
 export const scrapeSessionsStore = writable<ScrapeSession[]>([])
+
+// Set all sessions (used by API fallback)
+export function setScrapeSessions(sessions: ScrapeSession[]) {
+  scrapeSessionsStore.set(sessions)
+}
 
 // Helper functions to update the store
 export function addScrapeSession(session: ScrapeSession) {
