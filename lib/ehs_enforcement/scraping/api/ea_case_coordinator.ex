@@ -308,7 +308,7 @@ defmodule EhsEnforcement.Scraping.Api.EaCaseCoordinator do
       "scrape_session:#{session_id}",
       {:record_processed,
        %{
-         ea_record_id: ea_record.ea_record_id,
+         regulator_id: ea_record.ea_record_id,
          offender_name: offender_name,
          action_type: action_type
        }}

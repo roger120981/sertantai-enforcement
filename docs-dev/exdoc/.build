@@ -262,6 +262,7 @@ Mix.Tasks.Diagrams.Generate.html
 Mix.Tasks.Evaluate.AiModels.html
 Mix.Tasks.Evaluate.CreateTestDataset.html
 Mix.Tasks.PopulateOffenderAgencies.html
+Mix.Tasks.ScrapeEaNotices.html
 Mix.Tasks.ValidateEnv.html
 UK.Act.html
 UK.Regulation.html
@@ -273,8 +274,8 @@ dist/lato-latin-700-normal-2XVSBPG4.woff2
 dist/lato-latin-ext-400-normal-N27NCBWW.woff2
 dist/lato-latin-ext-700-normal-Q2L5DVMW.woff2
 dist/remixicon-QPNJX265.woff2
-dist/search_data-AFA989AF.js
-dist/sidebar_items-337336C2.js
+dist/search_data-0D0ACFCF.js
+dist/sidebar_items-1BBF650C.js
 index.html
 readme.html
 search.html
