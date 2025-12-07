@@ -21,13 +21,31 @@
 
   // Form state
   let formData = {
-    agency: 'hse' as 'hse' | 'ea' | 'sepa' | 'nrw',
-    database: 'notices' as 'notices' | 'convictions' | 'appeals' | 'penalties' | 'cases',
+    agency: 'hse' as 'hse' | 'ea' | 'sepa' | 'nrw' | 'caa' | 'opss' | 'orr' | 'fra' | 'mca',
+    database: 'notices' as 'notices' | 'convictions' | 'appeals' | 'penalties' | 'cases' | 'all' | 'prosecutions' | 'undertakings',
     startPage: 1 as number | string,
     maxPages: 5 as number | string,
     country: 'All',
     section: 'all' as 'all' | 'penalties' | 'undertakings' | 'costs_recovery',
     limit: 20,
+    // CAA-specific
+    caaDataType: 'all' as 'all' | 'prosecutions' | 'undertakings',
+    caaYears: [] as number[],
+    useAiParsing: true,
+    // OPSS-specific
+    opssDataType: 'all' as 'all' | 'notices' | 'prosecutions',
+    opssPeriods: [] as string[],
+    // ORR-specific
+    orrDataType: 'all' as 'all' | 'prosecutions' | 'notices',
+    orrYears: [] as number[],
+    orrNoticeType: '' as '' | 'improvement' | 'prohibition',
+    // FRA-specific
+    fraNoticeType: '',
+    fraFrs: [] as string[],
+    fraMaxPages: 10,
+    // MCA-specific
+    mcaYears: [] as number[],
+    includePdfYears: true,
   }
 
   // Reset form values when agency changes (but only when not scraping)
@@ -52,6 +70,23 @@
     } else if (formData.agency === 'nrw') {
       formData.database = 'cases'
       formData.limit = 20
+    } else if (formData.agency === 'caa') {
+      formData.database = 'all'
+      formData.caaDataType = 'all'
+      formData.useAiParsing = true
+    } else if (formData.agency === 'opss') {
+      formData.database = 'all'
+      formData.opssDataType = 'all'
+    } else if (formData.agency === 'orr') {
+      formData.database = 'all'
+      formData.orrDataType = 'all'
+      formData.orrNoticeType = ''
+    } else if (formData.agency === 'fra') {
+      formData.database = 'notices'
+      formData.fraMaxPages = 10
+    } else if (formData.agency === 'mca') {
+      formData.database = 'prosecutions'
+      formData.includePdfYears = true
     }
   }
 
@@ -217,6 +252,49 @@
           database: 'cases',
           limit: formData.limit,
         }
+      } else if (formData.agency === 'caa') {
+        // CAA - prosecution and undertaking scraping
+        requestParams = {
+          agency: 'caa',
+          database: formData.caaDataType,
+          data_type: formData.caaDataType,
+          years: formData.caaYears.length > 0 ? formData.caaYears : undefined,
+          use_ai_parsing: formData.useAiParsing,
+        }
+      } else if (formData.agency === 'opss') {
+        // OPSS - product safety enforcement
+        requestParams = {
+          agency: 'opss',
+          database: formData.opssDataType,
+          data_type: formData.opssDataType,
+          periods: formData.opssPeriods.length > 0 ? formData.opssPeriods : undefined,
+        }
+      } else if (formData.agency === 'orr') {
+        // ORR - rail safety enforcement
+        requestParams = {
+          agency: 'orr',
+          database: formData.orrDataType,
+          data_type: formData.orrDataType,
+          years: formData.orrYears.length > 0 ? formData.orrYears : undefined,
+          notice_type: formData.orrNoticeType || undefined,
+        }
+      } else if (formData.agency === 'fra') {
+        // FRA - fire safety notices
+        requestParams = {
+          agency: 'fra',
+          database: 'notices',
+          notice_type: formData.fraNoticeType || undefined,
+          frs: formData.fraFrs.length > 0 ? formData.fraFrs : undefined,
+          max_pages: formData.fraMaxPages,
+        }
+      } else if (formData.agency === 'mca') {
+        // MCA - maritime prosecutions
+        requestParams = {
+          agency: 'mca',
+          database: 'prosecutions',
+          years: formData.mcaYears.length > 0 ? formData.mcaYears : undefined,
+          include_pdf_years: formData.includePdfYears,
+        }
       } else {
         // SEPA - single page scraping with section filter
         requestParams = {
@@ -358,6 +436,11 @@
               <option value="ea">Environment Agency (EA)</option>
               <option value="sepa">SEPA (Scottish Environment Protection Agency)</option>
               <option value="nrw">NRW (Natural Resources Wales)</option>
+              <option value="caa">CAA (Civil Aviation Authority)</option>
+              <option value="opss">OPSS (Office for Product Safety & Standards)</option>
+              <option value="orr">ORR (Office of Rail and Road)</option>
+              <option value="fra">FRA (Fire and Rescue Authorities)</option>
+              <option value="mca">MCA (Maritime and Coastguard Agency)</option>
             </select>
           </div>
 
@@ -492,6 +575,145 @@
                 disabled={isScraping}
                 class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
               />
+            </div>
+          {/if}
+
+          <!-- CAA Options -->
+          {#if formData.agency === 'caa'}
+            <div>
+              <label for="caaDataType" class="block text-sm font-medium text-gray-700 mb-2">
+                Data Type
+              </label>
+              <select
+                id="caaDataType"
+                bind:value={formData.caaDataType}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="all">All (Prosecutions & Undertakings)</option>
+                <option value="prosecutions">Prosecutions Only</option>
+                <option value="undertakings">Undertakings Only</option>
+              </select>
+            </div>
+            <div class="flex items-center space-x-4 lg:col-span-2">
+              <label class="flex items-center space-x-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  bind:checked={formData.useAiParsing}
+                  disabled={isScraping}
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Use AI parsing for PDF extraction</span>
+              </label>
+              <p class="text-sm text-gray-500">
+                CAA publishes prosecution data in annual PDF reports.
+              </p>
+            </div>
+          {/if}
+
+          <!-- OPSS Options -->
+          {#if formData.agency === 'opss'}
+            <div>
+              <label for="opssDataType" class="block text-sm font-medium text-gray-700 mb-2">
+                Data Type
+              </label>
+              <select
+                id="opssDataType"
+                bind:value={formData.opssDataType}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="all">All (Notices & Prosecutions)</option>
+                <option value="notices">Notices Only</option>
+                <option value="prosecutions">Prosecutions Only</option>
+              </select>
+            </div>
+            <div class="lg:col-span-2">
+              <p class="text-sm text-gray-500 mt-6">
+                OPSS publishes product safety enforcement data in bi-annual reports.
+              </p>
+            </div>
+          {/if}
+
+          <!-- ORR Options -->
+          {#if formData.agency === 'orr'}
+            <div>
+              <label for="orrDataType" class="block text-sm font-medium text-gray-700 mb-2">
+                Data Type
+              </label>
+              <select
+                id="orrDataType"
+                bind:value={formData.orrDataType}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="all">All (Prosecutions & Notices)</option>
+                <option value="prosecutions">Prosecutions Only</option>
+                <option value="notices">Notices Only</option>
+              </select>
+            </div>
+            <div>
+              <label for="orrNoticeType" class="block text-sm font-medium text-gray-700 mb-2">
+                Notice Type
+              </label>
+              <select
+                id="orrNoticeType"
+                bind:value={formData.orrNoticeType}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+              >
+                <option value="">All Notice Types</option>
+                <option value="improvement">Improvement Notices</option>
+                <option value="prohibition">Prohibition Notices</option>
+              </select>
+            </div>
+            <div class="lg:col-span-2">
+              <p class="text-sm text-gray-500">
+                ORR regulates rail safety. Prosecution data is extracted from PDF reports.
+              </p>
+            </div>
+          {/if}
+
+          <!-- FRA Options -->
+          {#if formData.agency === 'fra'}
+            <div>
+              <label for="fraMaxPages" class="block text-sm font-medium text-gray-700 mb-2">
+                Max Pages
+              </label>
+              <input
+                id="fraMaxPages"
+                type="number"
+                min="1"
+                max="100"
+                bind:value={formData.fraMaxPages}
+                disabled={isScraping}
+                class="w-full px-3 py-2 text-sm rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
+              />
+            </div>
+            <div class="lg:col-span-2">
+              <p class="text-sm text-gray-500 mt-6">
+                FRA data comes from the NFCC National Fire Safety Register. Each page contains ~100 notices.
+              </p>
+            </div>
+          {/if}
+
+          <!-- MCA Options -->
+          {#if formData.agency === 'mca'}
+            <div class="flex items-center space-x-4">
+              <label class="flex items-center space-x-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  bind:checked={formData.includePdfYears}
+                  disabled={isScraping}
+                  class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Include PDF years (requires AI parsing)</span>
+              </label>
+            </div>
+            <div class="lg:col-span-2">
+              <p class="text-sm text-gray-500">
+                MCA publishes maritime prosecution data. Recent years are HTML, older years are PDFs.
+              </p>
             </div>
           {/if}
         </div>

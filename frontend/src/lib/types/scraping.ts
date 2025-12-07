@@ -63,7 +63,7 @@ export type SSEEvent =
 /**
  * Supported agencies
  */
-export type Agency = 'hse' | 'ea' | 'sepa' | 'nrw'
+export type Agency = 'hse' | 'ea' | 'sepa' | 'nrw' | 'caa' | 'opss' | 'orr' | 'fra' | 'mca'
 
 /**
  * Scraping session (from API and ElectricSQL)
@@ -128,9 +128,72 @@ export interface NrwScrapingRequest {
 }
 
 /**
+ * API request for starting scraping - CAA
+ */
+export interface CaaScrapingRequest {
+  agency: 'caa'
+  database: 'all' | 'prosecutions' | 'undertakings'
+  data_type?: 'all' | 'prosecutions' | 'undertakings'
+  years?: number[]
+  use_ai_parsing?: boolean
+}
+
+/**
+ * API request for starting scraping - OPSS
+ */
+export interface OpssScrapingRequest {
+  agency: 'opss'
+  database: 'all' | 'notices' | 'prosecutions'
+  data_type?: 'all' | 'notices' | 'prosecutions'
+  periods?: string[]
+}
+
+/**
+ * API request for starting scraping - ORR
+ */
+export interface OrrScrapingRequest {
+  agency: 'orr'
+  database: 'all' | 'prosecutions' | 'notices'
+  data_type?: 'all' | 'prosecutions' | 'notices'
+  years?: number[]
+  notice_type?: 'improvement' | 'prohibition'
+}
+
+/**
+ * API request for starting scraping - FRA
+ */
+export interface FraScrapingRequest {
+  agency: 'fra'
+  database: 'notices'
+  notice_type?: string
+  frs?: string[]
+  max_pages?: number
+  page_size?: number
+}
+
+/**
+ * API request for starting scraping - MCA
+ */
+export interface McaScrapingRequest {
+  agency: 'mca'
+  database: 'prosecutions'
+  years?: number[]
+  include_pdf_years?: boolean
+}
+
+/**
  * Union type for all scraping requests
  */
-export type StartScrapingRequest = HseScrapingRequest | EaScrapingRequest | SepaScrapingRequest | NrwScrapingRequest
+export type StartScrapingRequest =
+  | HseScrapingRequest
+  | EaScrapingRequest
+  | SepaScrapingRequest
+  | NrwScrapingRequest
+  | CaaScrapingRequest
+  | OpssScrapingRequest
+  | OrrScrapingRequest
+  | FraScrapingRequest
+  | McaScrapingRequest
 
 /**
  * API response from start scraping

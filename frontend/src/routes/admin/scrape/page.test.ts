@@ -106,10 +106,8 @@ describe('Admin Scrape Page (+page.svelte)', () => {
 		it('initializes with default HSE agency selected', () => {
 			render(ScrapePage);
 
-			const hseButton = screen.getByRole('button', {
-				name: /HSE \(Health & Safety Executive\)/i
-			});
-			expect(hseButton).toHaveClass('bg-blue-600'); // Active state
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
+			expect(agencySelect).toHaveValue('hse');
 		});
 
 		it('initializes with notices database as default', () => {
@@ -127,40 +125,65 @@ describe('Admin Scrape Page (+page.svelte)', () => {
 	});
 
 	describe('Agency Selection', () => {
+		it('displays all agency options in dropdown', () => {
+			render(ScrapePage);
+
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
+			expect(agencySelect).toBeInTheDocument();
+
+			// Check all agencies are available as options
+			expect(screen.getByRole('option', { name: /HSE \(Health & Safety Executive\)/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /Environment Agency \(EA\)/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /SEPA/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /NRW/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /CAA \(Civil Aviation Authority\)/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /OPSS/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /ORR/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /FRA/i })).toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /MCA/i })).toBeInTheDocument();
+		});
+
 		it('displays both HSE and EA agency buttons', () => {
 			render(ScrapePage);
 
 			expect(
-				screen.getByRole('button', { name: /HSE \(Health & Safety Executive\)/i })
+				screen.getByRole('option', { name: /HSE \(Health & Safety Executive\)/i })
 			).toBeInTheDocument();
 			expect(
-				screen.getByRole('button', { name: /Environment Agency \(EA\)/i })
+				screen.getByRole('option', { name: /Environment Agency \(EA\)/i })
 			).toBeInTheDocument();
 		});
 
 		it('allows selecting Environment Agency', async () => {
 			render(ScrapePage);
 
-			const eaButton = screen.getByRole('button', { name: /Environment Agency \(EA\)/i });
-			await fireEvent.click(eaButton);
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
+			await fireEvent.change(agencySelect, { target: { value: 'ea' } });
 
-			expect(eaButton).toHaveClass('bg-blue-600'); // Active state
+			expect(agencySelect).toHaveValue('ea');
+		});
+
+		it('allows selecting CAA agency', async () => {
+			render(ScrapePage);
+
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
+			await fireEvent.change(agencySelect, { target: { value: 'caa' } });
+
+			expect(agencySelect).toHaveValue('caa');
 		});
 
 		it('switches from EA back to HSE', async () => {
 			render(ScrapePage);
 
-			// Click EA
-			const eaButton = screen.getByRole('button', { name: /Environment Agency \(EA\)/i });
-			await fireEvent.click(eaButton);
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
 
-			// Click HSE
-			const hseButton = screen.getByRole('button', {
-				name: /HSE \(Health & Safety Executive\)/i
-			});
-			await fireEvent.click(hseButton);
+			// Select EA
+			await fireEvent.change(agencySelect, { target: { value: 'ea' } });
+			expect(agencySelect).toHaveValue('ea');
 
-			expect(hseButton).toHaveClass('bg-blue-600');
+			// Select HSE
+			await fireEvent.change(agencySelect, { target: { value: 'hse' } });
+			expect(agencySelect).toHaveValue('hse');
 		});
 
 		it('shows Start Page input for HSE agency', () => {
@@ -174,8 +197,8 @@ describe('Admin Scrape Page (+page.svelte)', () => {
 		it('shows From Date input for EA agency', async () => {
 			render(ScrapePage);
 
-			const eaButton = screen.getByRole('button', { name: /Environment Agency \(EA\)/i });
-			await fireEvent.click(eaButton);
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
+			await fireEvent.change(agencySelect, { target: { value: 'ea' } });
 
 			const fromDateLabel = screen.getByLabelText(/From Date/i);
 			expect(fromDateLabel).toBeInTheDocument();
@@ -193,8 +216,8 @@ describe('Admin Scrape Page (+page.svelte)', () => {
 		it('shows To Date input for EA agency', async () => {
 			render(ScrapePage);
 
-			const eaButton = screen.getByRole('button', { name: /Environment Agency \(EA\)/i });
-			await fireEvent.click(eaButton);
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
+			await fireEvent.change(agencySelect, { target: { value: 'ea' } });
 
 			const toDateLabel = screen.getByLabelText(/To Date/i);
 			expect(toDateLabel).toBeInTheDocument();
@@ -359,10 +382,8 @@ describe('Admin Scrape Page (+page.svelte)', () => {
 			await new Promise((resolve) => setTimeout(resolve, 50));
 
 			// Check that form controls are disabled
-			const hseButton = screen.getByRole('button', {
-				name: /HSE \(Health & Safety Executive\)/i
-			});
-			expect(hseButton).toBeDisabled();
+			const agencySelect = screen.getByRole('combobox', { name: /Agency/i });
+			expect(agencySelect).toBeDisabled();
 
 			const databaseSelect = screen.getByRole('combobox', { name: /Enforcement Type/i });
 			expect(databaseSelect).toBeDisabled();
@@ -504,15 +525,16 @@ describe('Admin Scrape Page (+page.svelte)', () => {
 			expect(h2).toHaveTextContent('Scraping Configuration');
 		});
 
-		it('provides descriptive button text', () => {
+		it('provides descriptive button text and labels', () => {
 			render(ScrapePage);
 
 			expect(screen.getByRole('button', { name: /Start Scraping/i })).toBeInTheDocument();
+			expect(screen.getByRole('combobox', { name: /Agency/i })).toBeInTheDocument();
 			expect(
-				screen.getByRole('button', { name: /HSE \(Health & Safety Executive\)/i })
+				screen.getByRole('option', { name: /HSE \(Health & Safety Executive\)/i })
 			).toBeInTheDocument();
 			expect(
-				screen.getByRole('button', { name: /Environment Agency \(EA\)/i })
+				screen.getByRole('option', { name: /Environment Agency \(EA\)/i })
 			).toBeInTheDocument();
 		});
 	});

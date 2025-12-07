@@ -772,7 +772,13 @@ defmodule EhsEnforcementWeb.Api.ScrapingController do
       cases_exist_total: session.cases_exist_total,
       errors_count: session.errors_count,
       inserted_at: session.inserted_at,
-      updated_at: session.updated_at
+      updated_at: session.updated_at,
+      # EA-specific date fields
+      date_from: serialize_date(session.date_from),
+      date_to: serialize_date(session.date_to)
     }
   end
+
+  defp serialize_date(nil), do: nil
+  defp serialize_date(%Date{} = date), do: Date.to_iso8601(date)
 end
