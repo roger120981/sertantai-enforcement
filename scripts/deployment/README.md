@@ -1,50 +1,101 @@
-# EHS Enforcement Deployment Scripts
+# Sertantai Enforcement Deployment Scripts
 
-Automated deployment scripts for building, testing, and deploying the EHS Enforcement application.
+Automated deployment scripts for building, testing, and deploying the Sertantai Enforcement application.
+
+## Architecture Overview
+
+This application uses a modern full-stack architecture:
+
+| Component | Technology | Port | Deployment |
+|-----------|------------|------|------------|
+| **Frontend** | Svelte 5 + TanStack | - | Static files via nginx |
+| **Backend** | Phoenix API | 4003 | Docker container |
+| **Real-time** | ElectricSQL | 3000 | Docker container |
+| **Auth** | sertantai-auth (JWT SSO) | 4001 | Separate service |
+| **Database** | PostgreSQL 16 | 5432 | Shared infrastructure |
+
+**Production URL:** https://enforcement.sertantai.com
 
 ## Quick Start
 
 ```bash
-# Complete deployment in 3 commands
+# Complete full-stack deployment
 ./scripts/deployment/build.sh
 ./scripts/deployment/push.sh
-./scripts/deployment/deploy-prod.sh --migrate --logs
+./scripts/deployment/deploy-prod.sh --all --migrate --logs
 ```
 
 ## Available Scripts
 
 | Script | Purpose | Time |
 |--------|---------|------|
-| **build.sh** | Build production Docker image | 5-10 min |
-| **push.sh** | Push image to GitHub Container Registry | 1-2 min |
-| **deploy-prod.sh** | Deploy to production server | 30-60 sec |
-| **test-container.sh** | Test container locally (optional) | 2-5 min |
+| **build.sh** | Build frontend + backend | 5-10 min |
+| **build-frontend.sh** | Build Svelte frontend only | 1-2 min |
+| **push.sh** | Push backend image to GHCR | 1-2 min |
+| **deploy-prod.sh** | Deploy to production | 30-60 sec |
+| **deploy-frontend.sh** | Deploy frontend via rsync | 10-30 sec |
+| **test-container.sh** | Test builds locally | 2-5 min |
 
 ## Script Details
 
 ### build.sh
 
-Build the production Docker image locally.
+Build production artifacts (frontend and/or backend).
 
 ```bash
-./scripts/deployment/build.sh [tag]
+./scripts/deployment/build.sh [options] [tag]
+
+# Options:
+#   --backend-only   Build only Docker image (Phoenix)
+#   --frontend-only  Build only Svelte frontend
+#   --no-cache       Build Docker image without cache
+#   --check          Run type checks before building
 
 # Examples:
-./scripts/deployment/build.sh           # Build with 'latest' tag
-./scripts/deployment/build.sh v1.2.3    # Build with version tag
+./scripts/deployment/build.sh                    # Build full stack
+./scripts/deployment/build.sh --backend-only     # Backend only
+./scripts/deployment/build.sh --frontend-only    # Frontend only
+./scripts/deployment/build.sh --check v1.2.3     # Full stack with checks + version tag
 ```
 
 **What it does:**
-- Validates Dockerfile exists
-- Checks Docker is running
-- Builds image with proper tagging
-- Shows image size and ID
+- Builds Svelte frontend to `frontend/build/` (static files)
+- Builds Phoenix backend Docker image
+- Tags image for GitHub Container Registry
+
+---
+
+### build-frontend.sh
+
+Build only the Svelte frontend for production.
+
+```bash
+./scripts/deployment/build-frontend.sh [options]
+
+# Options:
+#   --clean   Remove node_modules and reinstall
+#   --check   Run type checking and linting
+
+# Examples:
+./scripts/deployment/build-frontend.sh           # Standard build
+./scripts/deployment/build-frontend.sh --clean   # Clean install first
+./scripts/deployment/build-frontend.sh --check   # Build with checks
+```
+
+**Output:** `frontend/build/` (static files for nginx)
+
+**Requires:** `frontend/.env.production` with:
+```bash
+PUBLIC_API_URL=https://enforcement.sertantai.com
+PUBLIC_ELECTRIC_URL=https://enforcement.sertantai.com/electric
+PUBLIC_ENV=production
+```
 
 ---
 
 ### push.sh
 
-Push the built image to GitHub Container Registry.
+Push the backend Docker image to GitHub Container Registry.
 
 ```bash
 ./scripts/deployment/push.sh [tag]
@@ -64,71 +115,118 @@ echo $GITHUB_PAT | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 
 ### deploy-prod.sh
 
-Deploy to the production server (sertantai).
+Deploy to production server.
 
 ```bash
 ./scripts/deployment/deploy-prod.sh [options]
 
 # Options:
+#   --all          Deploy both frontend and backend (default)
+#   --frontend     Deploy frontend only
+#   --backend      Deploy backend only
 #   --migrate      Run database migrations
 #   --check-only   Check status without deploying
 #   --logs         Follow logs after deployment
 #   --help         Show help message
 
 # Examples:
-./scripts/deployment/deploy-prod.sh                    # Standard deploy
-./scripts/deployment/deploy-prod.sh --migrate          # Deploy with migrations
-./scripts/deployment/deploy-prod.sh --migrate --logs   # Deploy and watch logs
-./scripts/deployment/deploy-prod.sh --check-only       # Check status only
+./scripts/deployment/deploy-prod.sh                         # Deploy full stack
+./scripts/deployment/deploy-prod.sh --frontend              # Frontend only
+./scripts/deployment/deploy-prod.sh --backend --migrate     # Backend with migrations
+./scripts/deployment/deploy-prod.sh --all --migrate --logs  # Full deploy + watch
+./scripts/deployment/deploy-prod.sh --check-only            # Check status only
 ```
 
 **What it does:**
-1. Verifies SSH connectivity
-2. Pulls latest image from GHCR
-3. Checks migration status
-4. Runs migrations (if --migrate)
-5. Restarts container
-6. Validates health endpoint
-7. Shows recent logs
+1. **Frontend**: Calls `deploy-frontend.sh` to rsync static files to nginx
+2. **Backend**: Pulls Docker image, optionally migrates, restarts container
+3. Validates health endpoints
+4. Shows deployment status
+
+---
+
+### deploy-frontend.sh
+
+Deploy frontend static files to production via rsync.
+
+```bash
+./scripts/deployment/deploy-frontend.sh [options]
+
+# Options:
+#   --build        Build frontend before deploying
+#   --dry-run      Show what would be transferred
+#   --check-only   Check server status only
+
+# Examples:
+./scripts/deployment/deploy-frontend.sh              # Deploy existing build
+./scripts/deployment/deploy-frontend.sh --build      # Build then deploy
+./scripts/deployment/deploy-frontend.sh --dry-run    # Preview changes
+```
+
+**Server:** `sertantai-hz`
+**Deploy path:** `/var/www/enforcement-frontend`
 
 ---
 
 ### test-container.sh
 
-Test the Docker container locally before pushing to production.
+Test production builds locally before deployment.
 
 ```bash
-./scripts/deployment/test-container.sh
+./scripts/deployment/test-container.sh [options]
+
+# Options:
+#   --backend-only   Test only Docker image
+#   --frontend-only  Test only frontend build
+#   --skip-electric  Skip ElectricSQL in tests
+#   --clean          Clean up test containers
+
+# Examples:
+./scripts/deployment/test-container.sh                 # Test full stack
+./scripts/deployment/test-container.sh --backend-only  # Backend only
+./scripts/deployment/test-container.sh --clean         # Clean up
 ```
 
-**What it does:**
-- Starts local PostgreSQL container
-- Runs application container
-- Tests database connectivity
-- Verifies health endpoint
-- Shows application logs
-
-**Clean up after testing:**
-```bash
-docker compose -f docker-compose.dev.yml down -v
-```
+**Note:** For development, use `./scripts/development/sert-enf-start` instead.
 
 ---
 
-## Typical Workflow
+## Typical Workflows
 
-### Daily Development Deployment
+### Full Stack Deployment
 
 ```bash
-# 1. Make your changes
-git pull origin main
-# ... make code changes ...
-git add . && git commit -m "feat: add feature" && git push
-
-# 2. Build and deploy
+# 1. Build everything
 ./scripts/deployment/build.sh
+
+# 2. Push backend image
 ./scripts/deployment/push.sh
-./scripts/deployment/deploy-prod.sh --migrate --logs
+
+# 3. Deploy full stack
+./scripts/deployment/deploy-prod.sh --all --migrate --logs
+```
+
+### Frontend-Only Deployment
+
+When only frontend changes were made:
+
+```bash
+# Option A: Build and deploy in one command
+./scripts/deployment/deploy-frontend.sh --build
+
+# Option B: Separate steps
+./scripts/deployment/build-frontend.sh
+./scripts/deployment/deploy-frontend.sh
+```
+
+### Backend-Only Deployment
+
+When only backend changes were made:
+
+```bash
+./scripts/deployment/build.sh --backend-only
+./scripts/deployment/push.sh
+./scripts/deployment/deploy-prod.sh --backend --migrate
 ```
 
 ### Pre-deployment Testing
@@ -137,67 +235,90 @@ git add . && git commit -m "feat: add feature" && git push
 # 1. Build
 ./scripts/deployment/build.sh
 
-# 2. Test locally first
+# 2. Test locally
 ./scripts/deployment/test-container.sh
 
-# 3. Clean up test environment
-docker compose -f docker-compose.dev.yml down -v
+# 3. Clean up
+./scripts/deployment/test-container.sh --clean
 
-# 4. Push and deploy
+# 4. Deploy
 ./scripts/deployment/push.sh
-./scripts/deployment/deploy-prod.sh --migrate
+./scripts/deployment/deploy-prod.sh --all --migrate
 ```
 
 ### Version Release
 
 ```bash
-# Build and tag version
-./scripts/deployment/build.sh v1.2.3
+# Build with version tag
+./scripts/deployment/build.sh --check v1.2.3
 
-# Test the versioned image
+# Test
 ./scripts/deployment/test-container.sh
 
-# Push version
+# Push versioned image
 ./scripts/deployment/push.sh v1.2.3
 
-# Deploy (after updating docker-compose.yml to use v1.2.3)
-./scripts/deployment/deploy-prod.sh --migrate --logs
+# Deploy (update SERTANTAI_ENFORCEMENT_VERSION in .env first)
+./scripts/deployment/deploy-prod.sh --all --migrate --logs
 ```
 
 ---
 
-## Script Features
+## Environment Variables
 
-All scripts include:
-- ✅ Colored terminal output
-- ✅ Progress indicators
-- ✅ Built-in validation
-- ✅ Error handling with helpful messages
-- ✅ Next-step suggestions
-- ✅ Comprehensive help text
+### Frontend (`frontend/.env.production`)
+
+```bash
+PUBLIC_API_URL=https://enforcement.sertantai.com
+PUBLIC_ELECTRIC_URL=https://enforcement.sertantai.com/electric
+PUBLIC_ENV=production
+PUBLIC_ENABLE_DEBUG=false
+```
+
+### Backend (infrastructure `.env`)
+
+```bash
+SERTANTAI_ENFORCEMENT_VERSION=latest
+SERTANTAI_ENFORCEMENT_PORT=4003
+SERTANTAI_ENFORCEMENT_PHX_HOST=enforcement.sertantai.com
+SERTANTAI_ENFORCEMENT_SECRET_KEY_BASE=<generate with mix phx.gen.secret>
+SERTANTAI_ENFORCEMENT_POOL_SIZE=10
+SHARED_TOKEN_SECRET=<must match sertantai-auth>
+```
 
 ---
 
 ## Prerequisites
 
-### For Building (build.sh)
+### For Building
 - Docker installed and running
-- Dockerfile in project root
+- Node.js 18+ and npm (for frontend)
+- `frontend/.env.production` configured
 
-### For Pushing (push.sh)
-- Image built locally
+### For Pushing
 - GHCR authentication configured
-- Network connectivity
-
-### For Deploying (deploy-prod.sh)
-- SSH access to sertantai server
-- Image pushed to GHCR
-- SSH key configured
-
-### For Testing (test-container.sh)
 - Image built locally
-- Docker Compose installed
-- Optional: docker-compose.dev.yml
+
+### For Deploying
+- SSH access to `sertantai-hz` server
+- SSH key configured
+- Image pushed to GHCR (for backend)
+
+---
+
+## Infrastructure Requirements
+
+The production infrastructure (managed in `~/Desktop/infrastructure`) needs:
+
+1. **PostgreSQL** with logical replication enabled (`wal_level=logical`)
+2. **ElectricSQL** container for real-time sync
+3. **nginx** configured to:
+   - Serve frontend static files at root
+   - Proxy `/api/` to Phoenix backend
+   - Proxy `/electric/` to ElectricSQL
+4. **sertantai-auth** for JWT SSO
+
+See `~/Desktop/infrastructure/.claude/sessions/2025-12-15-sertantai-enforcement-deployment.md` for full infrastructure setup instructions.
 
 ---
 
@@ -208,8 +329,11 @@ All scripts include:
 # Check Docker is running
 docker info
 
-# Check Dockerfile exists
-ls -la Dockerfile
+# Check Node.js version (need 18+)
+node --version
+
+# Check frontend .env exists
+cat frontend/.env.production
 ```
 
 ### Push fails
@@ -218,60 +342,67 @@ ls -la Dockerfile
 echo $GITHUB_PAT | docker login ghcr.io -u YOUR_USERNAME --password-stdin
 
 # Verify image exists
-docker images | grep ehs-enforcement
+docker images | grep sertantai-enforcement
 ```
 
-### Deploy fails
+### Frontend deploy fails
 ```bash
 # Test SSH connection
-ssh sertantai
+ssh sertantai-hz
 
-# Check script has execute permission
-ls -la scripts/deployment/deploy-prod.sh
-chmod +x scripts/deployment/deploy-prod.sh
+# Check build exists
+ls -la frontend/build/
+
+# Try dry run
+./scripts/deployment/deploy-frontend.sh --dry-run
 ```
 
-### Test fails
+### Backend deploy fails
 ```bash
-# Check docker-compose.dev.yml exists
-ls -la docker-compose.dev.yml
+# Check status
+./scripts/deployment/deploy-prod.sh --check-only
 
-# Check image exists
-docker images | grep ehs-enforcement
+# SSH and check logs
+ssh sertantai-hz
+cd ~/infrastructure/docker
+docker compose logs sertantai-enforcement
+```
 
-# Clean up and retry
-docker compose -f docker-compose.dev.yml down -v
-./scripts/deployment/test-container.sh
+### ElectricSQL not syncing
+```bash
+# Check Electric health
+curl https://enforcement.sertantai.com/electric/v1/health
+
+# Check PostgreSQL replication
+ssh sertantai-hz
+docker exec shared_postgres psql -U postgres -c "SHOW wal_level;"
+# Should return: logical
 ```
 
 ---
 
 ## Production Details
 
-**Server:** sertantai (Digital Ocean droplet)
-**URL:** https://legal.sertantai.com
-**Infrastructure Path:** `~/infrastructure/docker`
-**Container Name:** `ehs_enforcement_app`
-**Port:** 4002 (internal, proxied by nginx)
+| Item | Value |
+|------|-------|
+| **Server** | sertantai-hz (Hetzner) |
+| **URL** | https://enforcement.sertantai.com |
+| **Infrastructure Path** | `~/infrastructure/docker` |
+| **Frontend Path** | `/var/www/enforcement-frontend` |
+| **Backend Container** | `sertantai_enforcement_app` |
+| **Electric Container** | `sertantai_enforcement_electric` |
+| **Database** | `sertantai_enforcement_prod` |
+| **Backend Port** | 4003 |
 
 ---
 
-## Documentation
+## Related Documentation
 
-**Detailed Guides:**
-- [DEPLOYMENT_WITH-SCRIPTS.md](../../docs-dev/dev/deployment/DEPLOYMENT_WITH-SCRIPTS.md) - Complete scripted workflow guide
-- [DEPLOYMENT_CURRENT.md](../../docs-dev/dev/deployment/DEPLOYMENT_CURRENT.md) - Manual deployment workflow
-
-**Need help?**
-```bash
-# Show script help
-./scripts/deployment/deploy-prod.sh --help
-
-# Check production status
-./scripts/deployment/deploy-prod.sh --check-only
-```
+- [Infrastructure Setup](~/Desktop/infrastructure/.claude/sessions/2025-12-15-sertantai-enforcement-deployment.md)
+- [Development Scripts](../development/README.md)
+- [Getting Started](../../docs-dev/GETTING_STARTED.md)
 
 ---
 
-**Last Updated:** 2025-10-14
-**Scripts Version:** 1.0
+**Last Updated:** 2025-12-15
+**Scripts Version:** 2.0 (Full-stack architecture)
