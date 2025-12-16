@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# test-container.sh - Test EHS Enforcement full stack locally
+# test-container.sh - Test Sertantai Enforcement full stack locally
 #
 # This script tests the production build locally before deploying.
 # It uses docker-compose.yml to create a local test environment with:
@@ -46,7 +46,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
-IMAGE_NAME="ghcr.io/shotleybuilder/ehs-enforcement:latest"
+IMAGE_NAME="ghcr.io/shotleybuilder/sertantai-enforcement:latest"
 FRONTEND_BUILD="frontend/build"
 
 # Parse command line options
@@ -100,7 +100,7 @@ done
 cd "$(dirname "$0")/../.."
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  EHS Enforcement - Production Build Test${NC}"
+echo -e "${BLUE}  Sertantai Enforcement - Production Build Test${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 

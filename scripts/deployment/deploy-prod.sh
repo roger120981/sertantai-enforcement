@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# deploy-prod.sh - Deploy EHS Enforcement to production server
+# deploy-prod.sh - Deploy Sertantai Enforcement to production server
 #
 # This script deploys the full stack to production:
 #   - Frontend: Svelte static files to nginx (via rsync)
@@ -42,7 +42,7 @@ NC='\033[0m' # No Color
 # Configuration
 SERVER="sertantai-hz"
 DEPLOY_PATH="~/infrastructure/docker"
-SERVICE_NAME="ehs-enforcement"
+SERVICE_NAME="sertantai-enforcement"
 FRONTEND_PATH="/var/www/enforcement-frontend"
 BUILD_DIR="frontend/build"
 SITE_URL="https://enforcement.sertantai.com"
@@ -115,7 +115,7 @@ done
 cd "$(dirname "$0")/../.."
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  EHS Enforcement - Production Deployment${NC}"
+echo -e "${BLUE}  Sertantai Enforcement - Production Deployment${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${YELLOW}Server:${NC} ${SERVER}"

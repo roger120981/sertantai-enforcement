@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# build.sh - Build production artifacts for EHS Enforcement
+# build.sh - Build production artifacts for Sertantai Enforcement
 #
 # This script builds production artifacts for the full stack:
 #   - Phoenix backend Docker image (tagged for GHCR)
@@ -41,7 +41,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Image configuration
-IMAGE_NAME="ghcr.io/shotleybuilder/ehs-enforcement"
+IMAGE_NAME="ghcr.io/shotleybuilder/sertantai-enforcement"
 IMAGE_TAG="latest"
 
 # Parse command line options
@@ -101,7 +101,7 @@ FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 cd "$(dirname "$0")/../.."
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  EHS Enforcement - Production Build${NC}"
+echo -e "${BLUE}  Sertantai Enforcement - Production Build${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 

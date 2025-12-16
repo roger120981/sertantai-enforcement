@@ -19,7 +19,7 @@
 #   - npm installed
 #
 # Environment Variables (set in frontend/.env.production):
-#   PUBLIC_API_URL      - Phoenix backend URL (e.g., https://ehs-enforcement.sertantai.com)
+#   PUBLIC_API_URL      - Phoenix backend URL (e.g., https://enforcement.sertantai.com)
 #   PUBLIC_ELECTRIC_URL - ElectricSQL sync service URL
 #   PUBLIC_ENV          - Environment identifier (production)
 #
@@ -82,7 +82,7 @@ done
 cd "$(dirname "$0")/../.."
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  EHS Enforcement - Frontend Build${NC}"
+echo -e "${BLUE}  Sertantai Enforcement - Frontend Build${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 

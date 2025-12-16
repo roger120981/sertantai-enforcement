@@ -28,7 +28,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Image configuration
-IMAGE_NAME="ghcr.io/shotleybuilder/ehs-enforcement"
+IMAGE_NAME="ghcr.io/shotleybuilder/sertantai-enforcement"
 IMAGE_TAG="${1:-latest}"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 
@@ -36,7 +36,7 @@ FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 cd "$(dirname "$0")/../.."
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  EHS Enforcement - Docker Build (NO CACHE)${NC}"
+echo -e "${BLUE}  Sertantai Enforcement - Docker Build (NO CACHE)${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${YELLOW}Image:${NC} ${FULL_IMAGE}"

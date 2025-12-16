@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# push.sh - Push EHS Enforcement Docker image to GitHub Container Registry
+# push.sh - Push Sertantai Enforcement Docker image to GitHub Container Registry
 #
 # This script pushes the built Docker image to GHCR. You must be logged in
 # to GHCR before running this script.
@@ -28,12 +28,12 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Image configuration
-IMAGE_NAME="ghcr.io/shotleybuilder/ehs-enforcement"
+IMAGE_NAME="ghcr.io/shotleybuilder/sertantai-enforcement"
 IMAGE_TAG="${1:-latest}"
 FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}  EHS Enforcement - Push to GHCR${NC}"
+echo -e "${BLUE}  Sertantai Enforcement - Push to GHCR${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${YELLOW}Image:${NC} ${FULL_IMAGE}"
@@ -93,9 +93,9 @@ if [ $? -eq 0 ]; then
     echo -e "     ${YELLOW}ssh sertantai-hz${NC} (or ${YELLOW}ssh hetzner${NC})"
     echo -e "     Then run:"
     echo -e "       ${BLUE}cd ~/infrastructure/docker${NC}"
-    echo -e "       ${BLUE}docker compose pull ehs-enforcement${NC}"
-    echo -e "       ${BLUE}docker compose up -d ehs-enforcement${NC}"
-    echo -e "       ${BLUE}docker compose logs -f ehs-enforcement${NC}  # Monitor startup"
+    echo -e "       ${BLUE}docker compose pull sertantai-enforcement${NC}"
+    echo -e "       ${BLUE}docker compose up -d sertantai-enforcement${NC}"
+    echo -e "       ${BLUE}docker compose logs -f sertantai-enforcement${NC}  # Monitor startup"
     echo ""
 else
     echo ""
