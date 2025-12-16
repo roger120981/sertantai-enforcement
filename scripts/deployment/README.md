@@ -121,13 +121,16 @@ Deploy to production server.
 ./scripts/deployment/deploy-prod.sh [options]
 
 # Options:
-#   --all          Deploy both frontend and backend (default)
-#   --frontend     Deploy frontend only
-#   --backend      Deploy backend only
-#   --migrate      Run database migrations
-#   --check-only   Check status without deploying
-#   --logs         Follow logs after deployment
-#   --help         Show help message
+#   --all              Deploy both frontend and backend (default)
+#   --frontend         Deploy frontend only
+#   --backend          Deploy backend only
+#   --electric         Restart ElectricSQL only (safe restart)
+#   --with-electric    Also restart ElectricSQL when deploying backend
+#   --electric-clear-cache  Restart Electric and clear shape cache
+#   --migrate          Run database migrations
+#   --check-only       Check status without deploying
+#   --logs             Follow logs after deployment
+#   --help             Show help message
 
 # Examples:
 ./scripts/deployment/deploy-prod.sh                         # Deploy full stack
@@ -135,13 +138,23 @@ Deploy to production server.
 ./scripts/deployment/deploy-prod.sh --backend --migrate     # Backend with migrations
 ./scripts/deployment/deploy-prod.sh --all --migrate --logs  # Full deploy + watch
 ./scripts/deployment/deploy-prod.sh --check-only            # Check status only
+./scripts/deployment/deploy-prod.sh --electric              # Restart Electric only
+./scripts/deployment/deploy-prod.sh --backend --with-electric --migrate  # Backend + Electric
+./scripts/deployment/deploy-prod.sh --electric-clear-cache  # Electric with cache clear
 ```
 
 **What it does:**
 1. **Frontend**: Calls `deploy-frontend.sh` to rsync static files to nginx
 2. **Backend**: Pulls Docker image, optionally migrates, restarts container
-3. Validates health endpoints
-4. Shows deployment status
+3. **Electric**: Safe restart using `docker restart` (never `docker compose up`!)
+4. Validates health endpoints
+5. Shows deployment status
+
+**ElectricSQL Safety:**
+- Uses `docker restart` for safe restarts (preserves database)
+- Uses `--no-deps` when recreating container (prevents PostgreSQL recreation)
+- NEVER uses `docker compose up electric` directly (can wipe database!)
+- Use `--electric-clear-cache` after schema changes or when shapes are stale
 
 ---
 
