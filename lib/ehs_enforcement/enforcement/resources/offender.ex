@@ -495,11 +495,14 @@ defmodule EhsEnforcement.Enforcement.Offender do
     name
     |> String.trim()
     |> String.downcase()
+    # Convert & to "and" before removing punctuation (handles "B&J" -> "b and j")
+    |> String.replace("&", " and ")
     # Remove common punctuation that could interfere with matching
-    |> String.replace(~r/[\.,:;!@#$%^&*()]+/, "")
+    |> String.replace(~r/[\.,:;!@#$%^*()]+/, "")
     # Normalize company suffixes
-    |> String.replace(~r/\s+(limited|ltd\.?)$/i, " limited")
-    |> String.replace(~r/\s+(plc|p\.l\.c\.?)$/i, " plc")
+    |> String.replace(~r/\b(ltd\.?)\b/i, "limited")
+    |> String.replace(~r/\b(plc|p\.l\.c\.?)\b/i, "plc")
+    |> String.replace(~r/\b(llp|l\.l\.p\.?)\b/i, "llp")
     # Replace multiple spaces with single space
     |> String.replace(~r/\s+/, " ")
     |> String.trim()
