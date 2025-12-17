@@ -91,8 +91,9 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
 
       {:ok, legislation} = Ash.get(Enforcement.Legislation, legislation_id)
 
+      # Note: normalize_legislation_title properly capitalizes words after punctuation
       assert legislation.legislation_title ==
-               "Construction (design and Management) Regulations 2015"
+               "Construction (Design and Management) Regulations 2015"
 
       assert legislation.legislation_year == 2015
       assert legislation.legislation_type == :regulation

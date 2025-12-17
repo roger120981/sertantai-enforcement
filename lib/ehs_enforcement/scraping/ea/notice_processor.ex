@@ -185,6 +185,7 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeProcessor do
   Process and create a single EA enforcement notice directly using Ash patterns.
 
   Combines processing and Notice resource creation into a single operation.
+  Also creates legislation and offence records when legal_act is present.
 
   ## Returns
 
@@ -194,17 +195,9 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeProcessor do
   - `{:error, reason}` - Processing or creation failed
   """
   def process_and_create_notice(ea_detail_record, actor) do
-    case process_notice(ea_detail_record) do
-      {:ok, processed_notice} ->
-        create_notice_from_processed(processed_notice, actor)
-
-      {:error, reason} ->
-        Logger.error(
-          "EA NoticeProcessor: Failed to process notice #{ea_detail_record.ea_record_id}: #{inspect(reason)}"
-        )
-
-        {:error, reason}
-    end
+    # Use the legislation linking function to ensure offences and legislation
+    # records are created when legal_act is present
+    process_notice_with_legislation_linking(ea_detail_record, actor)
   end
 
   @doc """
@@ -395,7 +388,8 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeProcessor do
 
   defp extract_year_from_ea_act(act_title) when is_binary(act_title) do
     # EA acts typically include year in title
-    case Regex.run(~r/\b(19|20)\d{2}\b/, act_title) do
+    # Use non-capturing group (?:...) to avoid multiple matches in result
+    case Regex.run(~r/\b(?:19|20)\d{2}\b/, act_title) do
       [year_str] -> String.to_integer(year_str)
       nil -> guess_ea_act_year(act_title)
     end
@@ -454,11 +448,12 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeProcessor do
   defp extract_number_from_ea_context(%{title: title}) do
     # EA legislation numbers are less commonly available in notices
     # This could be enhanced with a lookup table similar to HSE
+    # Note: legislation_number is a string field
     case title do
       # EPA 1990 Chapter 43
-      "Environmental Protection Act" <> _ -> 143
+      "Environmental Protection Act" <> _ -> "43"
       # WRA 1991 Chapter 57
-      "Water Resources Act" <> _ -> 57
+      "Water Resources Act" <> _ -> "57"
       _ -> nil
     end
   end

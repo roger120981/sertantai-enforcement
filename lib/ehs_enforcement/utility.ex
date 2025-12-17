@@ -508,9 +508,30 @@ defmodule EhsEnforcement.Utility do
   @small_words ~w[at of and the in on for with to by under from etc]
 
   # Always capitalize first word
-  defp title_case_word(word, 0), do: String.capitalize(word)
+  defp title_case_word(word, 0), do: capitalize_with_punctuation(word)
   defp title_case_word(word, _index) when word in @small_words, do: word
-  defp title_case_word(word, _index), do: String.capitalize(word)
+
+  defp title_case_word(word, _index) do
+    # Check if word without leading punctuation is a small word
+    stripped = String.replace(word, ~r/^[^\p{L}]+/, "")
+
+    if stripped in @small_words do
+      word
+    else
+      capitalize_with_punctuation(word)
+    end
+  end
+
+  # Handle words with leading punctuation like "(england" -> "(England"
+  defp capitalize_with_punctuation(word) do
+    case Regex.run(~r/^([^\p{L}]*)(.*)$/, word) do
+      [_, prefix, rest] when prefix != "" ->
+        prefix <> String.capitalize(rest)
+
+      _ ->
+        String.capitalize(word)
+    end
+  end
 
   # Clean up common patterns and abbreviations
   defp clean_common_patterns(title) do
