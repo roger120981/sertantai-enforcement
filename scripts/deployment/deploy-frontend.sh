@@ -175,9 +175,15 @@ echo -e "${GREEN}✓ Build found: ${FILE_COUNT} files (${BUILD_SIZE})${NC}"
 echo ""
 
 # Ensure deploy directory exists on server
-echo -e "${BLUE}Ensuring deploy directory exists...${NC}"
-ssh "${SERVER}" "sudo mkdir -p ${DEPLOY_PATH} && sudo chown \$(whoami):\$(whoami) ${DEPLOY_PATH}"
-echo -e "${GREEN}✓ Deploy directory ready${NC}"
+echo -e "${BLUE}Checking deploy directory...${NC}"
+if ssh "${SERVER}" "[ -d ${DEPLOY_PATH} ] && [ -w ${DEPLOY_PATH} ]"; then
+    echo -e "${GREEN}✓ Deploy directory ready${NC}"
+else
+    echo -e "${RED}✗ Deploy directory not found or not writable: ${DEPLOY_PATH}${NC}"
+    echo -e "${YELLOW}  Create it manually on server:${NC}"
+    echo -e "${YELLOW}  sudo mkdir -p ${DEPLOY_PATH} && sudo chown \$(whoami):\$(whoami) ${DEPLOY_PATH}${NC}"
+    exit 1
+fi
 echo ""
 
 # Deploy with rsync

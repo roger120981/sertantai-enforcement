@@ -1,43 +1,44 @@
-# Development Docker Compose - Local Container Testing
+# Sertantai Enforcement - Development Docker Compose
 #
-# This configuration mirrors production infrastructure locally for testing
-# Docker builds before deployment. It provides two modes:
+# This is for LOCAL DEVELOPMENT ONLY. Production uses infrastructure/docker/docker-compose.yml
 #
-# Mode 1: Services only (postgres + redis)
-#   docker compose -f docker-compose.dev.yml up -d postgres redis
+# Usage modes:
+#
+# Mode 1: Core services (postgres + electric)
+#   docker compose -f docker-compose.dev.yml up -d postgres electric
 #   Run Phoenix on host for fast development with hot reload
 #
-# Mode 2: Full stack (all services including app)
+# Mode 2: With Redis
+#   docker compose -f docker-compose.dev.yml up -d postgres electric redis
+#
+# Mode 3: Full stack (all services including containerized app)
 #   docker compose -f docker-compose.dev.yml up --build app
 #   Test production Docker builds locally before pushing to GHCR
 #
-# Mode 3: Integration testing (includes Baserow)
+# Mode 4: Integration testing (includes Baserow)
 #   docker compose -f docker-compose.dev.yml --profile integration up -d
-#   Test with Baserow integration
 
 services:
-  # Local PostgreSQL (mirrors production shared_postgres)
-  # UPDATED: Enabled logical replication for ElectricSQL sync
+  # PostgreSQL with logical replication for ElectricSQL
   postgres:
-    image: postgres:16-alpine
-    container_name: ehs_dev_postgres
+    image: postgres:16
+    container_name: sertantai_enforcement_postgres
     ports:
-      - "5434:5432"  # Use 5434 to avoid conflict with other local postgres
+      - "5434:5432" # Use 5434 to avoid conflict with other local postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: sertantai_enforcement_dev
     volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
+      - sertantai_enforcement_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - dev_network
+      - sertantai_enforcement_network
     restart: unless-stopped
-    # Enable logical replication for ElectricSQL
     command:
       - "postgres"
       - "-c"
@@ -46,108 +47,94 @@ services:
       - "max_replication_slots=10"
       - "-c"
       - "max_wal_senders=10"
+      - "-c"
+      - "max_connections=200"
 
   # ElectricSQL sync service (v1.0 - HTTP Shape API for local-first sync)
-  # Consumes PostgreSQL logical replication and provides HTTP Shape API
   electric:
     image: electricsql/electric:latest
-    container_name: ehs_dev_electric
+    container_name: sertantai_enforcement_electric
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sertantai_enforcement_dev
       HTTP_PORT: 3000
-      ELECTRIC_INSECURE: "true"  # Development only! Use ELECTRIC_SECRET in production
-      PG_PROXY_PASSWORD: proxy_password  # Secure in production!
+      ELECTRIC_INSECURE: "true" # Development only!
+      PG_PROXY_PASSWORD: proxy_password
     ports:
-      - "3001:3000"  # HTTP API for Shape-based sync (using 3001 to avoid conflict with other projects)
+      - "3001:3000" # HTTP API for Shape-based sync
     networks:
-      - dev_network
+      - sertantai_enforcement_network
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/v1/shape?table=_electric_metadata&offset=-1"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:3000/v1/shape?table=_electric_metadata&offset=-1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
-  # Local Redis (mirrors production shared_redis)
+  # Redis (optional - for caching/sessions)
   redis:
     image: redis:7-alpine
-    container_name: ehs_dev_redis
+    container_name: sertantai_enforcement_redis
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
     volumes:
-      - redis_dev_data:/data
+      - sertantai_enforcement_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - dev_network
+      - sertantai_enforcement_network
     restart: unless-stopped
 
-  # Phoenix app (production-like container mode for testing)
-  # Use this to test Docker builds before pushing to production
+  # Phoenix app (for testing Docker builds before production)
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ghcr.io/shotleybuilder/ehs-enforcement:latest
-    container_name: ehs_dev_app
+    image: ghcr.io/shotleybuilder/sertantai-enforcement:latest
+    container_name: sertantai_enforcement_app
     ports:
       - "4002:4002"
     environment:
-      # Database connection (uses docker network hostname)
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ehs_enforcement_dev
-
-      # Phoenix configuration
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/sertantai_enforcement_dev
       PHX_HOST: localhost
       PHX_SERVER: "true"
       PORT: "4002"
       POOL_SIZE: "10"
-
-      # ElectricSQL sync service URL (for backend reference)
       ELECTRIC_URL: http://electric:3000
-
-      # CORS configuration for frontend (to be added when frontend is ready)
       FRONTEND_URL: http://localhost:5173
-
-      # Security (dev keys - not for production!)
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-dev_secret_key_base_at_least_64_chars_long_for_phoenix_security}
       TOKEN_SIGNING_SECRET: ${TOKEN_SIGNING_SECRET:-dev_token_secret}
-
-      # GitHub OAuth (optional - configure in .env.dev)
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-http://localhost:4002/auth/user/github/callback}
-
-      # Airtable API (optional - configure in .env.dev)
-      AT_UK_E_API_KEY: ${AT_UK_E_API_KEY:-test_api_key}
-
-      # Erlang VM tuning (matches production)
       ERL_MAX_PORTS: "1024"
       ERL_MAX_ETS_TABLES: "64"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      - dev_network
+      - sertantai_enforcement_network
     restart: unless-stopped
-    # Uncomment to see live logs
-    # tty: true
-    # stdin_open: true
 
   # Optional: Local Baserow for integration testing
-  # Enable with: docker compose -f docker-compose.dev.yml --profile integration up -d
   baserow:
     profiles: ["integration"]
     image: baserow/baserow:latest
-    container_name: ehs_dev_baserow
-    shm_size: '1gb'
+    container_name: sertantai_enforcement_baserow
+    shm_size: "1gb"
     ports:
       - "8080:80"
     environment:
@@ -164,16 +151,16 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - dev_network
+      - sertantai_enforcement_network
     restart: unless-stopped
 
 volumes:
-  postgres_dev_data:
+  sertantai_enforcement_postgres_data:
     driver: local
-  redis_dev_data:
+  sertantai_enforcement_redis_data:
     driver: local
 
 networks:
-  dev_network:
+  sertantai_enforcement_network:
     driver: bridge
-    name: ehs_dev_network
+    name: sertantai_enforcement_network

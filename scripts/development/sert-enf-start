@@ -61,7 +61,7 @@ if [ "$MANAGE_DOCKER" = true ]; then
     echo "🐳 Managing Docker containers..."
     cd "$PROJECT_ROOT"
 
-    if ! docker ps | grep -q "ehs_dev_postgres"; then
+    if ! docker ps | grep -q "sertantai_enforcement_postgres"; then
         echo "   Starting Docker services (postgres, electric, redis)..."
         docker compose -f docker-compose.dev.yml up -d postgres electric redis
         echo "   Waiting for services to be healthy..."
@@ -72,7 +72,7 @@ if [ "$MANAGE_DOCKER" = true ]; then
     echo ""
 else
     # Check if Docker services are running (warning only)
-    if ! docker ps | grep -q "ehs_dev_postgres"; then
+    if ! docker ps | grep -q "sertantai_enforcement_postgres"; then
         echo "⚠️  Docker containers not detected"
         echo "   Tip: Use 'sert-enf-start-tabbed --docker' to auto-start containers"
         echo ""

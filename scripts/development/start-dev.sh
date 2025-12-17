@@ -1,25 +1,27 @@
 #!/bin/bash
 
-# EHS Enforcement Development Starter
-# Simple version that mimics sertantai's approach
+# Sertantai Enforcement Development Starter
 
-cd /home/jason/Desktop/ehs-enforcement
+# Resolve symlink to get the actual script path
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
+cd "$PROJECT_ROOT"
 
-echo "🐳 Starting EHS Enforcement PostgreSQL..."
+echo "🐳 Starting Sertantai Enforcement PostgreSQL..."
 
-# Start our container (similar to sertantai)
-docker-compose up -d postgres
+# Start container
+docker compose -f docker-compose.dev.yml up -d postgres
 
 echo "⏳ Waiting for PostgreSQL to be ready..."
 sleep 5
 
 # Test if container is actually running
-if docker ps | grep -q "ehs_enforcement_postgres"; then
+if docker ps | grep -q "sertantai_enforcement_postgres"; then
     echo "✅ PostgreSQL container running"
 else
     echo "❌ PostgreSQL container failed to start"
     echo "Checking logs:"
-    docker logs ehs_enforcement_postgres
+    docker logs sertantai_enforcement_postgres
     exit 1
 fi
 

@@ -253,7 +253,7 @@ if [ "$TEST_BACKEND" = true ]; then
 
     # Check PostgreSQL connection
     echo -e "${BLUE}Testing database connectivity...${NC}"
-    if docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -U postgres -d ehs_enforcement_dev -c "SELECT 1" > /dev/null 2>&1; then
+    if docker compose -f "${COMPOSE_FILE}" exec -T postgres psql -U postgres -d sertantai_enforcement_dev -c "SELECT 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Database connection OK${NC}"
     else
         echo -e "${YELLOW}⚠ Database may need initialization${NC}"

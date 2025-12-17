@@ -38,7 +38,7 @@ if config_env() == :dev do
       password: System.get_env("DB_PASSWORD") || "postgres",
       hostname: System.get_env("DB_HOSTNAME") || "localhost",
       port: String.to_integer(System.get_env("DB_PORT") || "5432"),
-      database: System.get_env("DB_NAME") || "ehs_enforcement_dev"
+      database: System.get_env("DB_NAME") || "sertantai_enforcement_dev"
   end
 
   # GitHub OAuth configuration

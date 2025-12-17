@@ -182,7 +182,7 @@ if [ "$MANAGE_DOCKER" = true ]; then
     sleep 5
 
     # Verify Docker services are up
-    if docker ps | grep -q "ehs_dev_postgres"; then
+    if docker ps | grep -q "sertantai_enforcement_postgres"; then
         echo "   ✅ Docker services running"
     else
         echo "   ⚠️  Warning: Docker services may not be fully ready"
@@ -206,7 +206,7 @@ fi
 
 # Check Docker if not managing it
 if [ "$MANAGE_DOCKER" = false ] && [ "$FRONTEND_ONLY" = false ]; then
-    if ! docker ps | grep -q "ehs_dev_postgres"; then
+    if ! docker ps | grep -q "sertantai_enforcement_postgres"; then
         echo "⚠️  Docker containers not detected"
         echo "   Tip: Use 'sert-enf-restart --docker' to restart with Docker"
         echo ""
