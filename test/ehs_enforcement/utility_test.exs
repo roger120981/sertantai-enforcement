@@ -25,11 +25,39 @@ defmodule EhsEnforcement.UtilityTest do
     end
 
     test "expands common HSE abbreviations" do
+      # Year is stripped from normalized title (stored separately in legislation_year)
       assert Utility.normalize_legislation_title("PUWER 1998") ==
-               "Provision and Use of Work Equipment Regulations 1998"
+               "Provision and Use of Work Equipment Regulations"
 
       assert Utility.normalize_legislation_title("COSHH REGULATIONS") ==
                "Control of Substances Hazardous to Health Regulations"
+    end
+
+    test "strips leading 'The' to match Baserow format" do
+      assert Utility.normalize_legislation_title("The Health and Safety at Work Act") ==
+               "Health and Safety at Work Act"
+
+      assert Utility.normalize_legislation_title("THE ENVIRONMENTAL PROTECTION ACT") ==
+               "Environmental Protection Act"
+    end
+
+    test "strips trailing year to match Baserow format" do
+      assert Utility.normalize_legislation_title("Health and Safety at Work Act 1974") ==
+               "Health and Safety at Work Act"
+
+      assert Utility.normalize_legislation_title(
+               "Control of Substances Hazardous to Health Regulations 2002"
+             ) ==
+               "Control of Substances Hazardous to Health Regulations"
+
+      # Also handles parenthesized years
+      assert Utility.normalize_legislation_title("Some Regulation (2015)") ==
+               "Some Regulation"
+    end
+
+    test "strips both leading 'The' and trailing year" do
+      assert Utility.normalize_legislation_title("The Health and Safety at Work etc. Act 1974") ==
+               "Health and Safety at Work etc. Act"
     end
 
     test "standardizes etc. placement" do
@@ -125,7 +153,8 @@ defmodule EhsEnforcement.UtilityTest do
 
       {:ok, validated} = Utility.validate_legislation_data(data)
 
-      assert validated.legislation_title == "Health and Safety at Work Act 1974"
+      # Title is normalized (year stripped, stored in separate field)
+      assert validated.legislation_title == "Health and Safety at Work Act"
       assert validated.legislation_year == 1974
       assert validated.legislation_number == 37
       assert validated.legislation_type == :act

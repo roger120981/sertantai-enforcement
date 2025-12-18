@@ -490,10 +490,16 @@ defmodule EhsEnforcement.Utility do
       iex> normalize_legislation_title("control of substances hazardous to health regulations")
       "Control of Substances Hazardous to Health Regulations"
   """
-  @spec normalize_legislation_title(String.t()) :: String.t()
+  @spec normalize_legislation_title(String.t() | nil) :: String.t() | nil
+  def normalize_legislation_title(nil), do: nil
+
   def normalize_legislation_title(title) when is_binary(title) do
     title
     |> String.trim()
+    # Strip leading "The " to align with legislation.gov.uk format
+    |> strip_leading_the()
+    # Strip trailing year (e.g., " 1974", " 2016") - year is stored separately
+    |> strip_trailing_year()
     |> String.downcase()
     # Convert to proper title case
     |> String.split(" ")
@@ -502,7 +508,24 @@ defmodule EhsEnforcement.Utility do
     |> clean_common_patterns()
   end
 
-  def normalize_legislation_title(nil), do: nil
+  # Strip leading "The " (case-insensitive) to match legislation.gov.uk format
+  defp strip_leading_the(title) do
+    case Regex.run(~r/^the\s+(.+)$/i, title) do
+      [_, rest] -> rest
+      _ -> title
+    end
+  end
+
+  # Strip trailing year pattern (4-digit year at end, optionally with comma)
+  # Examples: " 1974", ", 2016", " (2015)" -> removed
+  defp strip_trailing_year(title) do
+    title
+    # Remove year in parentheses at end: "Foo (2015)" -> "Foo"
+    |> String.replace(~r/\s*\(\d{4}\)\s*$/, "")
+    # Remove year with optional comma: "Foo, 2015" or "Foo 2015" -> "Foo"
+    |> String.replace(~r/,?\s+\d{4}\s*$/, "")
+    |> String.trim()
+  end
 
   # Words that should remain lowercase in title case (except at start)
   @small_words ~w[at of and the in on for with to by under from etc]

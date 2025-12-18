@@ -52,7 +52,8 @@ defmodule EhsEnforcement.Scraping.Hse.OffenceCreationTest do
       # Verify legislation was created and linked
       assert offence.legislation_id != nil
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
-      assert legislation.legislation_title == "Health and Safety at Work etc. Act 1974"
+      # Title is normalized (year stripped, stored in separate field)
+      assert legislation.legislation_title == "Health and Safety at Work etc. Act"
       assert legislation.legislation_year == 1974
     end
 
@@ -77,10 +78,10 @@ defmodule EhsEnforcement.Scraping.Hse.OffenceCreationTest do
     end
 
     test "reuses existing legislation when matching breach", %{agency: agency} do
-      # Pre-create legislation
+      # Pre-create legislation (with normalized title - no year)
       {:ok, existing_legislation} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
@@ -105,11 +106,11 @@ defmodule EhsEnforcement.Scraping.Hse.OffenceCreationTest do
       offence = List.first(offences)
       assert offence.legislation_id == existing_legislation.id
 
-      # Verify no duplicate legislation was created
+      # Verify no duplicate legislation was created (title normalized - no year)
       query =
         Ash.Query.filter(
           Enforcement.Legislation,
-          legislation_title == "Health and Safety at Work etc. Act 1974"
+          legislation_title == "Health and Safety at Work etc. Act"
         )
 
       {:ok, legislations} = Ash.read(query)
@@ -401,11 +402,11 @@ defmodule EhsEnforcement.Scraping.Hse.OffenceCreationTest do
       assert second.legislation_part == "Section 3(1)"
       assert third.legislation_part == "Section 7"
 
-      # Verify only one Legislation record was created
+      # Verify only one Legislation record was created (title normalized - no year)
       query =
         Ash.Query.filter(
           Enforcement.Legislation,
-          legislation_title == "Health and Safety at Work etc. Act 1974"
+          legislation_title == "Health and Safety at Work etc. Act"
         )
 
       {:ok, legislations} = Ash.read(query)

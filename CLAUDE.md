@@ -56,6 +56,73 @@ If you need more control, see additional scripts in `scripts/development/`:
 
 ---
 
+## 🚨 CRITICAL: DATABASE CONFIGURATION
+
+**⚠️ DATA LOSS HAS OCCURRED FROM DATABASE CONFUSION - READ THIS CAREFULLY!**
+
+### The Correct Database
+
+| Setting | Value |
+|---------|-------|
+| **Database Name** | `sertantai_enforcement_dev` |
+| **Host** | `localhost` |
+| **Port** | `5434` |
+| **User** | `postgres` |
+| **Password** | `postgres` |
+
+### Correct psql Command
+
+```bash
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev
+```
+
+### ❌ WRONG Database Names (DO NOT USE)
+
+These database names are **INCORRECT** and will cause data loss or confusion:
+
+- ❌ `ehs_enforcement_dev` - OLD name, wrong database
+- ❌ `sertantai_enforcement_prod` - Production, not for development
+- ❌ `postgres` - Default database, not our app
+
+### Docker Volume Warning
+
+**Multiple Docker volumes have existed with fragmented data:**
+
+| Volume Name | Status |
+|-------------|--------|
+| `sertantai-enforcement_postgres_data` | ✅ CURRENT - Use this one |
+| `sertantai-enforcement_postgres_dev_data` | ❌ OLD - Do not use |
+| `ehs_enforcement_ehs_postgres_data` | ❌ LEGACY - Do not use |
+
+**Before any database operations:**
+1. Verify you're connected to `sertantai_enforcement_dev`
+2. Verify Docker is using `sertantai-enforcement_postgres_data` volume
+3. Use the development scripts (`./scripts/development/sert-enf-start`) which handle this correctly
+
+### Checking Current Database
+
+```bash
+# Verify database name in current connection
+PGPASSWORD=postgres psql -h localhost -p 5434 -U postgres -d sertantai_enforcement_dev -c "SELECT current_database();"
+
+# Expected output:
+#     current_database
+# -------------------------
+#  sertantai_enforcement_dev
+```
+
+### Historical Context (2025-12-17)
+
+Data loss occurred due to:
+1. Multiple Docker volumes with same postgres image but different data
+2. Confusion between `ehs_enforcement_dev` and `sertantai_enforcement_dev` database names
+3. Scraping sessions writing to wrong database/volume
+4. Recovery required manual data migration between volumes
+
+**Always double-check the database name before running imports, migrations, or data modifications.**
+
+---
+
 ## SESSION DOCUMENTATION
 
 When working within an active development session:

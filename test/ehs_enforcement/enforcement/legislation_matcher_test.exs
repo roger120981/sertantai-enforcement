@@ -15,16 +15,17 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
 
       # Verify legislation was created correctly
       {:ok, legislation} = Ash.get(Enforcement.Legislation, legislation_id)
-      assert legislation.legislation_title == "Health and Safety at Work etc. Act 1974"
+      # Title is normalized (year stripped, stored in separate field)
+      assert legislation.legislation_title == "Health and Safety at Work etc. Act"
       assert legislation.legislation_year == 1974
       assert legislation.legislation_type == :act
     end
 
     test "finds existing legislation from breach text" do
-      # Create legislation first
+      # Create legislation first (with normalized title - no year)
       {:ok, existing} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
@@ -52,10 +53,10 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
     end
 
     test "normalizes legislation title before matching" do
-      # Create with normalized title
+      # Create with normalized title (no year in title)
       {:ok, existing} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
@@ -92,8 +93,9 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
       {:ok, legislation} = Ash.get(Enforcement.Legislation, legislation_id)
 
       # Note: normalize_legislation_title properly capitalizes words after punctuation
+      # and strips year from title (stored separately in legislation_year)
       assert legislation.legislation_title ==
-               "Construction (Design and Management) Regulations 2015"
+               "Construction (Design and Management) Regulations"
 
       assert legislation.legislation_year == 2015
       assert legislation.legislation_type == :regulation
@@ -109,7 +111,8 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
                LegislationMatcher.find_or_create_legislation(act_name, act_year)
 
       {:ok, legislation} = Ash.get(Enforcement.Legislation, legislation_id)
-      assert legislation.legislation_title == "Health and Safety at Work etc. Act 1974"
+      # Title normalized (year stripped)
+      assert legislation.legislation_title == "Health and Safety at Work etc. Act"
       assert legislation.legislation_year == 1974
       assert legislation.legislation_type == :act
     end
@@ -117,7 +120,7 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
     test "finds existing legislation by title and year" do
       {:ok, existing} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
@@ -134,7 +137,7 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
     test "finds existing legislation by title when no year provided" do
       {:ok, existing} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
@@ -159,17 +162,17 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
     end
 
     test "prefers most recent year when matching by title only" do
-      # Create two versions of the same Act
+      # Create two versions of the same Act (title normalized - no year)
       {:ok, _old} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
 
       {:ok, recent} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 2015,
           legislation_type: :act
         })
@@ -185,15 +188,15 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
     end
 
     test "normalizes title using utility function" do
-      # The utility should normalize "Act" variations
+      # The utility should normalize "Act" variations and strip year
       act_name = "Health and Safety at Work etc. Act 1974"
 
       assert {:ok, legislation_id} =
                LegislationMatcher.find_or_create_legislation(act_name, 1974)
 
       {:ok, legislation} = Ash.get(Enforcement.Legislation, legislation_id)
-      # Should be normalized by Utility.normalize_legislation_title/1
-      assert legislation.legislation_title == "Health and Safety at Work etc. Act 1974"
+      # Should be normalized by Utility.normalize_legislation_title/1 (year stripped)
+      assert legislation.legislation_title == "Health and Safety at Work etc. Act"
     end
 
     test "determines legislation type correctly" do
@@ -262,10 +265,10 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
     end
 
     test "reuses existing legislation records" do
-      # Pre-create one legislation
+      # Pre-create one legislation (with normalized title - no year)
       {:ok, existing} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
@@ -328,11 +331,11 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
       # Should return the same ID
       assert id1 == id2
 
-      # Only one record should exist
+      # Only one record should exist (title normalized - no year)
       query =
         Ash.Query.filter(
           Enforcement.Legislation,
-          legislation_title == "Health and Safety at Work etc. Act 1974" and
+          legislation_title == "Health and Safety at Work etc. Act" and
             legislation_year == 1974
         )
 
@@ -350,7 +353,9 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
                LegislationMatcher.find_or_create_legislation(long_title, 2002)
 
       {:ok, legislation} = Ash.get(Enforcement.Legislation, legislation_id)
-      assert legislation.legislation_title == long_title
+      # Title normalized: "The" stripped, year stripped
+      assert legislation.legislation_title ==
+               "Control of Substances Hazardous to Health Regulations"
     end
 
     test "handles legislation with special characters" do
@@ -366,10 +371,10 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
     end
 
     test "matches legislation case-insensitively through normalization" do
-      # Create with one casing
+      # Create with normalized title (no year)
       {:ok, existing} =
         Enforcement.create_legislation(%{
-          legislation_title: "Health and Safety at Work etc. Act 1974",
+          legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })

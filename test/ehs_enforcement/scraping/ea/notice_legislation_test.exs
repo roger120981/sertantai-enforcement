@@ -67,8 +67,9 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeLegislationTest do
 
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
 
+      # Title normalized (year stripped)
       assert legislation.legislation_title ==
-               "Environmental Permitting (England and Wales) Regulations 2016"
+               "Environmental Permitting (England and Wales) Regulations"
 
       assert legislation.legislation_year == 2016
       assert legislation.legislation_type == :regulation
@@ -101,10 +102,10 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeLegislationTest do
 
       assert count_after > count_before, "Expected legislation table to have new entries"
 
-      # Find the legislation we just created
+      # Find the legislation we just created (title normalized - no year)
       {:ok, [legislation]} =
         Enforcement.Legislation
-        |> Ash.Query.filter(legislation_title == "Water Resources Act 1991")
+        |> Ash.Query.filter(legislation_title == "Water Resources Act")
         |> Ash.read()
 
       assert legislation.legislation_year == 1991
@@ -230,11 +231,11 @@ defmodule EhsEnforcement.Scraping.Ea.NoticeLegislationTest do
       assert offence_1.legislation_part == "Regulation 36"
       assert offence_2.legislation_part == "Regulation 38"
 
-      # Verify only one Legislation record exists for this Act
+      # Verify only one Legislation record exists for this Act (title normalized - no year)
       {:ok, legislations} =
         Enforcement.Legislation
         |> Ash.Query.filter(
-          legislation_title == "Environmental Permitting (England and Wales) Regulations 2016"
+          legislation_title == "Environmental Permitting (England and Wales) Regulations"
         )
         |> Ash.read()
 

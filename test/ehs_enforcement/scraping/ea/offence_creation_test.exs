@@ -62,8 +62,9 @@ defmodule EhsEnforcement.Scraping.Ea.OffenceCreationTest do
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
 
       # Note: normalize_legislation_title properly capitalizes words after punctuation
+      # and strips year from title (stored separately in legislation_year)
       assert legislation.legislation_title ==
-               "Environmental Permitting (England and Wales) Regulations 2016"
+               "Environmental Permitting (England and Wales) Regulations"
 
       assert legislation.legislation_year == 2016
       assert legislation.legislation_type == :regulation
@@ -125,7 +126,8 @@ defmodule EhsEnforcement.Scraping.Ea.OffenceCreationTest do
       assert offence.legislation_id != nil
 
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
-      assert legislation.legislation_title == "Water Resources Act 1991"
+      # Title normalized (year stripped)
+      assert legislation.legislation_title == "Water Resources Act"
       assert legislation.legislation_year == 1991
     end
   end
@@ -205,8 +207,9 @@ defmodule EhsEnforcement.Scraping.Ea.OffenceCreationTest do
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
 
       # Note: normalize_legislation_title properly capitalizes words after punctuation
+      # and strips year from title (stored separately)
       assert legislation.legislation_title ==
-               "Environmental Permitting (England and Wales) Regulations 2016"
+               "Environmental Permitting (England and Wales) Regulations"
 
       assert legislation.legislation_year == 2016
     end
@@ -320,10 +323,11 @@ defmodule EhsEnforcement.Scraping.Ea.OffenceCreationTest do
 
       # Verify only one Legislation record was created
       # Note: normalize_legislation_title properly capitalizes words after punctuation
+      # and strips year from title (stored separately)
       query =
         Ash.Query.filter(
           Enforcement.Legislation,
-          legislation_title == "Environmental Permitting (England and Wales) Regulations 2016"
+          legislation_title == "Environmental Permitting (England and Wales) Regulations"
         )
 
       {:ok, legislations} = Ash.read(query)
@@ -444,7 +448,8 @@ defmodule EhsEnforcement.Scraping.Ea.OffenceCreationTest do
       offence = List.first(offences)
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
 
-      assert legislation.legislation_title == "Water Resources Act 1991"
+      # Title normalized (year stripped)
+      assert legislation.legislation_title == "Water Resources Act"
       assert legislation.legislation_year == 1991
       assert legislation.legislation_type == :act
     end
@@ -475,7 +480,8 @@ defmodule EhsEnforcement.Scraping.Ea.OffenceCreationTest do
       offence = List.first(offences)
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
 
-      assert legislation.legislation_title == "Environmental Protection Act 1990"
+      # Title normalized (year stripped)
+      assert legislation.legislation_title == "Environmental Protection Act"
       assert legislation.legislation_year == 1990
       assert legislation.legislation_type == :act
     end
@@ -507,7 +513,8 @@ defmodule EhsEnforcement.Scraping.Ea.OffenceCreationTest do
       {:ok, legislation} = Ash.get(Enforcement.Legislation, offence.legislation_id)
 
       # Note: normalize_legislation_title properly capitalizes words after punctuation
-      assert legislation.legislation_title == "Waste (England and Wales) Regulations 2011"
+      # and strips year from title (stored separately)
+      assert legislation.legislation_title == "Waste (England and Wales) Regulations"
       assert legislation.legislation_year == 2011
       assert legislation.legislation_type == :regulation
     end
