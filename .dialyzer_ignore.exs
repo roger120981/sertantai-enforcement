@@ -51,5 +51,12 @@
   {"lib/ehs_enforcement/utility.ex", :unknown_type},
 
   # CSV export functions - Enum.map_join return type inference issue
-  {"lib/ehs_enforcement_web/live/legislation_live/show.ex", :unmatched_return}
+  {"lib/ehs_enforcement_web/live/legislation_live/show.ex", :unmatched_return},
+
+  # LookupTable - Dialyzer doesn't see that lookup/1 can return :not_found
+  {"lib/ehs_enforcement/legislation/lookup_table.ex", :pattern_match},
+  {"lib/ehs_enforcement/legislation/lookup_table.ex", :contract_supertype},
+
+  # TieredMatcher - Dialyzer pattern match false positive on enriched data
+  {"lib/ehs_enforcement/legislation/tiered_matcher.ex", :pattern_match}
 ]
