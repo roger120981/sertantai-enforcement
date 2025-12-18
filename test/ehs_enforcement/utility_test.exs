@@ -254,4 +254,125 @@ defmodule EhsEnforcement.UtilityTest do
       assert similarity == 1.0
     end
   end
+
+  describe "parse_legislation_url/1" do
+    test "parses UK Public General Act URL" do
+      url = "https://www.legislation.gov.uk/ukpga/1974/37"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "ukpga"
+      assert result.year == 1974
+      assert result.number == "37"
+    end
+
+    test "parses UK Statutory Instrument URL" do
+      url = "https://www.legislation.gov.uk/uksi/2015/51"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "uksi"
+      assert result.year == 2015
+      assert result.number == "51"
+    end
+
+    test "parses URL without www prefix" do
+      url = "https://legislation.gov.uk/ukpga/1990/43"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "ukpga"
+      assert result.year == 1990
+      assert result.number == "43"
+    end
+
+    test "parses Scottish Statutory Instrument URL" do
+      url = "https://www.legislation.gov.uk/ssi/2014/312"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "ssi"
+      assert result.year == 2014
+      assert result.number == "312"
+    end
+
+    test "parses Welsh Statutory Instrument URL" do
+      url = "https://www.legislation.gov.uk/wsi/2016/1154"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "wsi"
+      assert result.year == 2016
+      assert result.number == "1154"
+    end
+
+    test "parses Northern Ireland Statutory Rules URL" do
+      url = "https://www.legislation.gov.uk/nisr/2006/510"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "nisr"
+      assert result.year == 2006
+      assert result.number == "510"
+    end
+
+    test "parses Act of Scottish Parliament URL" do
+      url = "https://www.legislation.gov.uk/asp/2003/13"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "asp"
+      assert result.year == 2003
+      assert result.number == "13"
+    end
+
+    test "handles URL with trailing path segments" do
+      # Sometimes URLs have additional path like /contents or /section/1
+      url = "https://www.legislation.gov.uk/ukpga/1974/37/contents"
+
+      assert {:ok, result} = Utility.parse_legislation_url(url)
+      assert result.type_code == "ukpga"
+      assert result.year == 1974
+      assert result.number == "37"
+    end
+
+    test "returns error for nil URL" do
+      assert {:error, :invalid_url} = Utility.parse_legislation_url(nil)
+    end
+
+    test "returns error for empty string URL" do
+      assert {:error, :invalid_url} = Utility.parse_legislation_url("")
+    end
+
+    test "returns error for invalid URL format" do
+      assert {:error, :invalid_url} = Utility.parse_legislation_url("not-a-url")
+    end
+
+    test "returns error for non-legislation.gov.uk URL" do
+      assert {:error, :invalid_url} =
+               Utility.parse_legislation_url("https://example.com/ukpga/1974/37")
+    end
+
+    test "returns error for URL missing required components" do
+      # Missing number
+      assert {:error, :invalid_url} =
+               Utility.parse_legislation_url("https://www.legislation.gov.uk/ukpga/1974")
+    end
+  end
+
+  describe "build_legislation_url/3" do
+    test "builds URL from string components" do
+      url = Utility.build_legislation_url("ukpga", 1974, "37")
+
+      assert url == "https://www.legislation.gov.uk/ukpga/1974/37"
+    end
+
+    test "builds URL from integer number" do
+      url = Utility.build_legislation_url("uksi", 2015, 51)
+
+      assert url == "https://www.legislation.gov.uk/uksi/2015/51"
+    end
+
+    test "roundtrips with parse_legislation_url" do
+      original_url = "https://www.legislation.gov.uk/ukpga/1974/37"
+
+      {:ok, parsed} = Utility.parse_legislation_url(original_url)
+      rebuilt_url = Utility.build_legislation_url(parsed.type_code, parsed.year, parsed.number)
+
+      assert rebuilt_url == original_url
+    end
+  end
 end

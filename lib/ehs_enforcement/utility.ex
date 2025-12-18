@@ -654,6 +654,82 @@ defmodule EhsEnforcement.Utility do
   def extract_number_from_context(_title, _context), do: nil
 
   @doc """
+  Parses a legislation.gov.uk URL to extract the unique identifier components.
+
+  UK legislation URLs follow the format: https://www.legislation.gov.uk/{type_code}/{year}/{number}
+
+  ## Type Codes
+
+  | Code | Description |
+  |------|-------------|
+  | ukpga | UK Public General Act |
+  | uksi | UK Statutory Instrument |
+  | ssi | Scottish Statutory Instrument |
+  | wsi | Welsh Statutory Instrument |
+  | nisr | Northern Ireland Statutory Rules |
+  | nisi | NI Order in Council |
+  | asp | Act of Scottish Parliament |
+  | nia | NI Assembly Act |
+  | apni | Act of NI Parliament |
+  | ukla | UK Local Act |
+  | mwa | Welsh Assembly Measure |
+
+  ## Examples
+
+      iex> parse_legislation_url("https://www.legislation.gov.uk/ukpga/1974/37")
+      {:ok, %{type_code: "ukpga", year: 1974, number: "37"}}
+
+      iex> parse_legislation_url("https://legislation.gov.uk/uksi/2015/51")
+      {:ok, %{type_code: "uksi", year: 2015, number: "51"}}
+
+      iex> parse_legislation_url("invalid-url")
+      {:error, :invalid_url}
+
+  ## Returns
+
+  - `{:ok, %{type_code: String.t(), year: integer(), number: String.t()}}` on success
+  - `{:error, :invalid_url}` if URL doesn't match expected format
+  """
+  @spec parse_legislation_url(String.t() | nil) ::
+          {:ok, %{type_code: String.t(), year: integer(), number: String.t()}}
+          | {:error, :invalid_url}
+  def parse_legislation_url(nil), do: {:error, :invalid_url}
+  def parse_legislation_url(""), do: {:error, :invalid_url}
+
+  def parse_legislation_url(url) when is_binary(url) do
+    # Match legislation.gov.uk URLs with type_code/year/number pattern
+    # Handles both https://www.legislation.gov.uk and https://legislation.gov.uk
+    case Regex.run(~r|legislation\.gov\.uk/(\w+)/(\d{4})/(\d+)|, url) do
+      [_, type_code, year_str, number] ->
+        {:ok,
+         %{
+           type_code: type_code,
+           year: String.to_integer(year_str),
+           number: number
+         }}
+
+      _ ->
+        {:error, :invalid_url}
+    end
+  end
+
+  @doc """
+  Builds a legislation.gov.uk URL from components.
+
+  ## Examples
+
+      iex> build_legislation_url("ukpga", 1974, "37")
+      "https://www.legislation.gov.uk/ukpga/1974/37"
+
+      iex> build_legislation_url("uksi", 2015, 51)
+      "https://www.legislation.gov.uk/uksi/2015/51"
+  """
+  @spec build_legislation_url(String.t(), integer(), String.t() | integer()) :: String.t()
+  def build_legislation_url(type_code, year, number) do
+    "https://www.legislation.gov.uk/#{type_code}/#{year}/#{number}"
+  end
+
+  @doc """
   Validates legislation data completeness.
 
   Returns {:ok, normalized_data} or {:error, reason}
