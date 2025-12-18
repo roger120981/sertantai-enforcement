@@ -1402,120 +1402,27 @@ defmodule EhsEnforcement.Enforcement do
 
       iex> find_or_create_legislation("COSHH REGULATIONS 2002")
       {:ok, %Legislation{legislation_title: "Control of Substances Hazardous to Health Regulations", ...}}
+
+  ## Matching Strategy
+
+  Delegates to `EhsEnforcement.Legislation.TieredMatcher` which implements
+  a 6-tier matching strategy for maximum reliability. See `TieredMatcher`
+  documentation for details.
   """
-  @spec find_or_create_legislation(String.t(), integer() | nil, integer() | nil, atom() | nil) ::
+  @spec find_or_create_legislation(String.t(), integer() | nil, String.t() | nil, atom() | nil) ::
           {:ok, struct()} | {:error, term()}
   def find_or_create_legislation(title, year \\ nil, number \\ nil, type \\ nil)
       when is_binary(title) do
-    require Logger
+    alias EhsEnforcement.Legislation.TieredMatcher
 
-    # Validate and normalize input data
-    input_data = %{
+    input = %{
       title: title,
       year: year,
-      number: number,
+      number: if(is_integer(number), do: Integer.to_string(number), else: number),
       type: type
     }
 
-    case EhsEnforcement.Utility.validate_legislation_data(input_data) do
-      {:ok, validated_data} ->
-        do_find_or_create_legislation(validated_data)
-
-      {:error, reason} ->
-        Logger.warning("Invalid legislation data: #{reason} - Input: #{inspect(input_data)}")
-        {:error, reason}
-    end
-  end
-
-  defp do_find_or_create_legislation(validated_data) do
-    %{
-      legislation_title: title,
-      legislation_year: year,
-      legislation_number: number,
-      legislation_type: _type
-    } = validated_data
-
-    # Try exact match first using Ash identity
-    case find_exact_legislation(title, year, number) do
-      {:ok, legislation} ->
-        Logger.debug("Found exact legislation match: #{title}")
-        {:ok, legislation}
-
-      {:error, :not_found} ->
-        # Try fuzzy match for similar titles
-        case find_similar_legislation(title, year) do
-          {:ok, legislation} ->
-            Logger.info(
-              "Found similar legislation match: #{title} -> #{legislation.legislation_title}"
-            )
-
-            {:ok, legislation}
-
-          {:error, :not_found} ->
-            # Create new legislation record
-            Logger.info("Creating new legislation: #{title}")
-            create_new_legislation(validated_data)
-
-          error ->
-            error
-        end
-
-      error ->
-        error
-    end
-  end
-
-  defp find_exact_legislation(title, year, number) do
-    query =
-      EhsEnforcement.Enforcement.Legislation
-      |> Ash.Query.filter(
-        legislation_title == ^title and
-          legislation_year == ^year and
-          legislation_number == ^number
-      )
-
-    case Ash.read_one(query) do
-      {:ok, nil} -> {:error, :not_found}
-      {:ok, legislation} -> {:ok, legislation}
-      error -> error
-    end
-  end
-
-  defp find_similar_legislation(title, year, similarity_threshold \\ 0.85) do
-    # Get all legislation with the same year (or nil year)
-    base_query =
-      EhsEnforcement.Enforcement.Legislation
-      |> Ash.Query.filter(legislation_year == ^year or is_nil(legislation_year))
-
-    case Ash.read(base_query) do
-      {:ok, candidates} ->
-        # Find the best match using similarity scoring
-        best_match =
-          candidates
-          |> Enum.map(fn candidate ->
-            similarity =
-              EhsEnforcement.Utility.calculate_title_similarity(
-                title,
-                candidate.legislation_title
-              )
-
-            {candidate, similarity}
-          end)
-          |> Enum.filter(fn {_candidate, similarity} -> similarity >= similarity_threshold end)
-          |> Enum.max_by(fn {_candidate, similarity} -> similarity end, fn -> nil end)
-
-        case best_match do
-          {legislation, _similarity} -> {:ok, legislation}
-          nil -> {:error, :not_found}
-        end
-
-      error ->
-        error
-    end
-  end
-
-  defp create_new_legislation(validated_data) do
-    EhsEnforcement.Enforcement.create_legislation(validated_data)
+    TieredMatcher.find_or_create(input)
   end
 
   @doc """

@@ -2,27 +2,33 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcher do
   @moduledoc """
   Finds or creates Legislation records from breach text parsing.
 
-  Uses `BreachParser` to extract legislation references, then searches
-  for existing Legislation records or creates new ones.
-
-  Handles:
-  - Normalizing legislation titles using existing utility functions
-  - Fuzzy matching against existing legislation
-  - Creating new Legislation records when needed
-  - Caching lookups to avoid repeated database queries
+  Uses `BreachParser` to extract legislation references, then delegates
+  to `TieredMatcher` for finding or creating Legislation records.
 
   ## Example Flow
 
       breach_text = "Health and Safety at Work etc Act 1974, Section 2(1)"
       {:ok, legislation_id} = LegislationMatcher.find_or_create_from_breach(breach_text)
+
+  ## Matching Strategy
+
+  This module delegates to `EhsEnforcement.Legislation.TieredMatcher` which
+  implements a 6-tier matching strategy:
+
+  1. Unique identifier (year + type_code + number)
+  2. Title + year + number
+  3. Title + year + type_code
+  4. Exact normalized title + year
+  5. Fuzzy title + year (similarity >= 0.85)
+  6. Create new record (logs warning)
+
+  See `TieredMatcher` documentation for full details.
   """
 
   require Logger
-  require Ash.Query
 
-  alias EhsEnforcement.Enforcement
   alias EhsEnforcement.Enforcement.BreachParser
-  alias EhsEnforcement.Utility
+  alias EhsEnforcement.Legislation.TieredMatcher
 
   @doc """
   Find or create Legislation record from breach text.
@@ -31,8 +37,6 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcher do
   Returns `{:ok, nil}` if no legislation can be extracted.
   """
   def find_or_create_from_breach(breach_text, opts \\ []) when is_binary(breach_text) do
-    actor = Keyword.get(opts, :actor)
-
     parsed = BreachParser.parse_breach(breach_text)
 
     case {parsed.act_name, parsed.act_year} do
@@ -41,7 +45,7 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcher do
         {:ok, nil}
 
       {act_name, act_year} ->
-        find_or_create_legislation(act_name, act_year, parsed.legislation_part, actor)
+        find_or_create_legislation(act_name, act_year, parsed.legislation_part, opts)
     end
   end
 
@@ -52,114 +56,63 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcher do
   - `act_name`: Full name of Act/Regulation (e.g., "Health and Safety at Work etc Act 1974")
   - `act_year`: Year of legislation (integer or nil)
   - `legislation_part`: Section/Regulation reference (not used for lookup, stored in Offence)
-  - `actor`: Optional actor for authorization
+  - `opts`: Options including `:actor` for authorization
 
   Returns `{:ok, legislation_id}` or `{:error, reason}`.
   """
-  def find_or_create_legislation(act_name, act_year, _legislation_part \\ nil, actor \\ nil) do
-    # Normalize the title using existing utility function
-    normalized_title = Utility.normalize_legislation_title(act_name)
-    legislation_type = Utility.determine_legislation_type(act_name)
+  def find_or_create_legislation(act_name, act_year, _legislation_part \\ nil, opts \\ [])
 
-    Logger.debug(
-      "Looking up legislation: #{normalized_title} (#{act_year || "no year"}), type: #{legislation_type}"
-    )
-
-    # Try to find existing legislation by title and year
-    case find_existing_legislation(normalized_title, act_year, actor) do
-      {:ok, existing} when not is_nil(existing) ->
-        Logger.debug("Found existing legislation: #{existing.id}")
-        {:ok, existing.id}
-
-      {:ok, nil} ->
-        # Create new legislation record
-        create_legislation(normalized_title, act_year, legislation_type, actor)
-
-      {:error, reason} ->
-        Logger.error("Failed to search for legislation: #{inspect(reason)}")
-        {:error, reason}
-    end
+  # Handle old 4-arg signature where nil actor was passed directly
+  def find_or_create_legislation(act_name, act_year, legislation_part, nil) do
+    find_or_create_legislation(act_name, act_year, legislation_part, [])
   end
 
-  # Find existing legislation by normalized title and year
-  defp find_existing_legislation(normalized_title, year, actor) do
-    query_opts = if actor, do: [actor: actor], else: []
-
-    query =
-      if year do
-        Enforcement.Legislation
-        |> Ash.Query.filter(legislation_title == ^normalized_title and legislation_year == ^year)
-      else
-        # If no year, match on title only
-        Enforcement.Legislation
-        |> Ash.Query.filter(legislation_title == ^normalized_title)
-        |> Ash.Query.sort(legislation_year: :desc)
-        |> Ash.Query.limit(1)
-      end
-
-    query
-    |> Ash.read_one(query_opts)
+  # Handle old 4-arg signature where non-nil actor was passed directly
+  def find_or_create_legislation(act_name, act_year, legislation_part, actor)
+      when not is_list(actor) do
+    find_or_create_legislation(act_name, act_year, legislation_part, actor: actor)
   end
 
-  # Create new legislation record
-  defp create_legislation(normalized_title, year, legislation_type, actor) do
-    attrs = %{
-      legislation_title: normalized_title,
-      legislation_year: year,
-      legislation_type: legislation_type
+  def find_or_create_legislation(act_name, act_year, _legislation_part, opts)
+      when is_list(opts) do
+    input = %{
+      title: act_name,
+      year: act_year
     }
 
-    create_opts = if actor, do: [actor: actor], else: []
-
-    Logger.info("Creating new legislation: #{normalized_title} (#{year || "no year"})")
-
-    case Ash.create(Enforcement.Legislation, attrs, create_opts) do
+    case TieredMatcher.find_or_create(input, opts) do
       {:ok, legislation} ->
         {:ok, legislation.id}
 
-      {:error, %Ash.Error.Invalid{errors: errors} = ash_error} ->
-        # Check if this is a uniqueness constraint violation (race condition)
-        if duplicate_error?(errors) do
-          Logger.debug(
-            "Legislation already exists (race condition), retrying lookup: #{normalized_title}"
-          )
-
-          # Retry the lookup since another process created it
-          case find_existing_legislation(normalized_title, year, actor) do
-            {:ok, existing} when not is_nil(existing) ->
-              {:ok, existing.id}
-
-            _ ->
-              {:error, ash_error}
-          end
-        else
-          Logger.error("Failed to create legislation: #{inspect(ash_error)}")
-          {:error, ash_error}
-        end
-
       {:error, reason} ->
-        Logger.error("Failed to create legislation: #{inspect(reason)}")
         {:error, reason}
     end
   end
 
-  # Check if error is a uniqueness constraint violation
-  defp duplicate_error?(errors) do
-    Enum.any?(errors, fn error ->
-      case error do
-        %{field: :legislation_title, message: message} ->
-          String.contains?(message, "already been taken") or
-            String.contains?(message, "already exists")
+  @doc """
+  Find or create Legislation with tier information for debugging.
 
-        # Check for unique_legislation identity error
-        %{message: message} ->
-          String.contains?(message, "unique_legislation") or
-            String.contains?(message, "unique constraint")
+  Returns `{:ok, legislation_id, [tier: n, match_type: atom]}` or `{:error, reason}`.
+  """
+  def find_or_create_from_breach_with_tier(breach_text, opts \\ []) when is_binary(breach_text) do
+    parsed = BreachParser.parse_breach(breach_text)
 
-        _ ->
-          false
-      end
-    end)
+    case {parsed.act_name, parsed.act_year} do
+      {nil, _} ->
+        Logger.debug("No legislation found in breach: #{String.slice(breach_text, 0..50)}")
+        {:ok, nil, tier: nil, match_type: nil}
+
+      {act_name, act_year} ->
+        input = %{title: act_name, year: act_year}
+
+        case TieredMatcher.find_or_create_with_tier(input, opts) do
+          {:ok, legislation, meta} ->
+            {:ok, legislation.id, meta}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+    end
   end
 
   @doc """
@@ -170,11 +123,9 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcher do
   """
   def bulk_find_or_create_from_breaches(breach_texts, opts \\ [])
       when is_list(breach_texts) do
-    actor = Keyword.get(opts, :actor)
-
     results =
       Enum.reduce_while(breach_texts, {:ok, %{}}, fn breach_text, {:ok, acc} ->
-        case find_or_create_from_breach(breach_text, actor: actor) do
+        case find_or_create_from_breach(breach_text, opts) do
           {:ok, legislation_id} ->
             {:cont, {:ok, Map.put(acc, breach_text, legislation_id)}}
 

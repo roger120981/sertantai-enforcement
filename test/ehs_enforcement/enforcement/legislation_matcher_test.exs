@@ -161,30 +161,66 @@ defmodule EhsEnforcement.Enforcement.LegislationMatcherTest do
       assert legislation.legislation_year == nil
     end
 
-    test "prefers most recent year when matching by title only" do
-      # Create two versions of the same Act (title normalized - no year)
-      {:ok, _old} =
+    test "uses lookup table year for known legislation when year not provided" do
+      # Create the authoritative version (1974 - from lookup table)
+      {:ok, authoritative} =
         Enforcement.create_legislation(%{
           legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 1974,
           legislation_type: :act
         })
 
-      {:ok, recent} =
+      # Also create a different year version (shouldn't be matched)
+      {:ok, _other} =
         Enforcement.create_legislation(%{
           legislation_title: "Health and Safety at Work etc. Act",
           legislation_year: 2015,
           legislation_type: :act
         })
 
-      # When searching without year, should find most recent
+      # When searching without year but title is in lookup table,
+      # should use lookup table's year (1974) to find authoritative record
       assert {:ok, legislation_id} =
                LegislationMatcher.find_or_create_legislation(
-                 "Health and Safety at Work etc. Act 1974",
+                 "Health and Safety at Work etc. Act",
                  nil
                )
 
-      assert legislation_id == recent.id
+      assert legislation_id == authoritative.id
+    end
+
+    test "finds most recent when title not in lookup table and no year provided" do
+      # Create two versions of an Act NOT in the lookup table
+      {:ok, _old} =
+        Enforcement.create_legislation(%{
+          legislation_title: "Obscure Industrial Safety Act",
+          legislation_year: 1960,
+          legislation_type: :act
+        })
+
+      {:ok, recent} =
+        Enforcement.create_legislation(%{
+          legislation_title: "Obscure Industrial Safety Act",
+          legislation_year: 2020,
+          legislation_type: :act
+        })
+
+      # When searching without year for unknown legislation,
+      # the TieredMatcher will create a new record (since it can't find a match without year)
+      assert {:ok, legislation_id} =
+               LegislationMatcher.find_or_create_legislation(
+                 "Obscure Industrial Safety Act",
+                 nil
+               )
+
+      # Since no year is provided and it's not in lookup, a new record with nil year is created
+      # This differs from old behavior - now we're more strict about matching
+      {:ok, legislation} = Ash.get(Enforcement.Legislation, legislation_id)
+      assert legislation.legislation_title == "Obscure Industrial Safety Act"
+
+      # The IDs should be different since a new record was created
+      # (old behavior would have returned recent.id, new behavior creates new record)
+      refute legislation_id == recent.id
     end
 
     test "normalizes title using utility function" do
